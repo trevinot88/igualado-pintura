@@ -19,10 +19,7 @@ services:
       - key: NEXTAUTH_SECRET
         generateValue: true
       - key: NEXTAUTH_URL
-        fromService:
-          type: web
-          name: igualado-pintura
-          property: url
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM
