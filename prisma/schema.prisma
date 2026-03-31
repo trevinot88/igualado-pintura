@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ──────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  VENDEDOR
+  IGUALADOR
+}
+
+enum OrderStatus {
+  PENDIENTE
+  EN_PROCESO
+  LISTO
+  FACTURADO
+  PAGADO
+  ENTREGADO
+  CANCELADO
+}
+
+enum OrderSource {
+  MOSTRADOR
+  VENTAS
+  WHATSAPP
+  REDES_SOCIALES
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+  CHEQUE
+  CREDITO
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGED
+  QUEUE_REORDERED
+  LOGIN
+  EMAIL_SENT
+  LABEL_PRINTED
+}
+
+// ─── Models ─────────────────────────────────────────────
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  orders    Order[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  hashedPassword String
+  role           Role     @default(VENDEDOR)
+  active         Boolean  @default(true)
+  locationId     String?
+  location       Location? @relation(fields: [locationId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sellerOrders    Order[]  @relation("SellerOrders")
+  igualadorOrders Order[]  @relation("IgualadorOrders")
+  auditLogs       AuditLog[]
+}
+
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  company     String?
+  notes       String?
+  allowCredit Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+}
+
+model ColorGroup {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  active      Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  priceTiers  PriceTier[]
+  orders      Order[]
+}
+
+model PriceTier {
+  id            String     @id @default(cuid())
+  colorGroupId  String
+  colorGroup    ColorGroup @relation(fields: [colorGroupId], references: [id], onDelete: Cascade)
+  minLiters     Float
+  maxLiters     Float
+  pricePerLiter Float
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([colorGroupId])
+}
+
+model FolioSequence {
+  id        String @id // format: "YYMM"
+  lastValue Int    @default(0)
+}
+
+model Order {
+  id                    String      @id @default(cuid())
+  folio                 String      @unique
+  clientId              String
+  client                Client      @relation(fields: [clientId], references: [id])
+  sellerId              String
+  seller                User        @relation("SellerOrders", fields: [sellerId], references: [id])
+  igualadorId           String?
+  igualador             User?       @relation("IgualadorOrders", fields: [igualadorId], references: [id])
+  colorGroupId          String
+  colorGroup            ColorGroup  @relation(fields: [colorGroupId], references: [id])
+  colorName             String
+  liters                Float
+  pricePerLiter         Float
+  totalPrice            Float
+  source                OrderSource @default(MOSTRADOR)
+  status                OrderStatus @default(PENDIENTE)
+  queuePosition         Int
+  notes                 String?
+  locationId            String?
+  location              Location?   @relation(fields: [locationId], references: [id])
+  productionTimeMinutes Int?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  startedAt             DateTime?
+  completedAt           DateTime?
+  invoicedAt            DateTime?
+  paidAt                DateTime?
+  deliveredAt           DateTime?
+  cancelledAt           DateTime?
+  payments              Payment[]
+  labels                Label[]
+
+  @@index([status])
+  @@index([folio])
+  @@index([clientId])
+  @@index([queuePosition])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  orderId   String
+  order     Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount    Float
+  method    PaymentMethod
+  reference String?
+  notes     String?
+  createdAt DateTime      @default(now())
+
+  @@index([orderId])
+}
+
+model Label {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  content   Json
+  printedAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  userId    String?
+  user      User?       @relation(fields: [userId], references: [id])
+  action    AuditAction
+  entity    String
+  entityId  String?
+  changes   Json?
+  metadata  Json?
+  createdAt DateTime    @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
