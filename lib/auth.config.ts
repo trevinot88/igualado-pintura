@@ -27,4 +27,5 @@ export default {
     signIn: "/login",
   },
   session: { strategy: "jwt" },
+  trustHost: true,
 } satisfies NextAuthConfig;
