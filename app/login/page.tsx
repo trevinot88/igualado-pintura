@@ -38,10 +38,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-100">
       <div className="w-full max-w-md space-y-8 px-4">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 rounded-2xl bg-[#1e3a8a] flex items-center justify-center text-white font-bold text-2xl mb-4">
-            D
-          </div>
-          <h1 className="text-3xl font-bold">DYRLO</h1>
+          <img src="/dyrlo-logo.png" alt="dyrlo" className="mx-auto h-16 w-16 object-contain mb-4" />
+          <h1 className="text-3xl font-bold">dyrlo</h1>
           <p className="mt-2 text-slate-600">
             Igualados Pro — Sistema de Gestión
           </p>

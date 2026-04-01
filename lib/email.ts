@@ -22,7 +22,7 @@ export async function sendOrderReadyEmail(data: OrderEmailData) {
     await getResend().emails.send({
       from: process.env.EMAIL_FROM || "DYRLO <noreply@dyrlo.com>",
       to: data.clientEmail,
-      subject: `Tu pedido ${data.folio} está listo - DYRLO`,
+      subject: `Tu pedido ${data.folio} está listo - dyrlo`,
       html: `
 <!DOCTYPE html>
 <html>

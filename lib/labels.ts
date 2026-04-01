@@ -49,7 +49,7 @@ export function generateLabelHTML(data: LabelData): string {
 </head>
 <body>
   <div class="header">
-    <span class="logo">DYRLO</span>
+    <span class="logo">dyrlo</span>
     <span class="folio">${data.folio}</span>
   </div>
   <div class="main">

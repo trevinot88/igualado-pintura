@@ -69,10 +69,8 @@ export function Sidebar() {
           <div className="flex h-16 items-center justify-between border-b border-slate-200 px-4">
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-[#1e3a8a] flex items-center justify-center text-white font-bold text-sm">
-                D
-              </div>
-              <span className="font-bold text-lg">DYRLO</span>
+              <img src="/dyrlo-logo.png" alt="dyrlo" className="h-8 w-8 object-contain" />
+              <span className="font-bold text-lg">dyrlo</span>
             </Link>
           )}
           <button

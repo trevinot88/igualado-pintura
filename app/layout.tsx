@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DYRLO Igualados Pro",
+  title: "dyrlo Igualados Pro",
   description: "Sistema de Gestión de Igualados y Producción",
 };
 
