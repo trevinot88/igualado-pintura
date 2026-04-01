@@ -5,7 +5,11 @@ import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   const session = await auth();
-  requireRole(session?.user, ["ADMIN"]);
+  try {
+    requireRole(session?.user, ["ADMIN"]);
+  } catch {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
@@ -68,12 +72,12 @@ export async function GET(req: Request) {
     }),
     // Production by day (last 7 days)
     prisma.$queryRaw`
-      SELECT DATE(completed_at) as date, COUNT(*)::int as count, 
-             AVG(production_time_minutes)::int as avg_time
+      SELECT DATE("completedAt") as date, COUNT(*)::int as count, 
+             AVG("productionTimeMinutes")::int as avg_time
       FROM "Order" 
-      WHERE completed_at IS NOT NULL 
-        AND completed_at >= NOW() - INTERVAL '7 days'
-      GROUP BY DATE(completed_at)
+      WHERE "completedAt" IS NOT NULL 
+        AND "completedAt" >= NOW() - INTERVAL '7 days'
+      GROUP BY DATE("completedAt")
       ORDER BY date
     `,
     // Igualador performance
