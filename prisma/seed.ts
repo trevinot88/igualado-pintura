@@ -1,7 +1,10 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { createHash } from "crypto";
+import "dotenv/config";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -9,6 +12,18 @@ function hashPassword(password: string): string {
 
 async function main() {
   console.log("Seeding database...");
+
+  // Clean existing data (order matters for FK constraints)
+  await prisma.auditLog.deleteMany();
+  await prisma.label.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.folioSequence.deleteMany();
+  await prisma.priceTier.deleteMany();
+  await prisma.colorGroup.deleteMany();
+  await prisma.client.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.location.deleteMany();
 
   // Create main location
   const location = await prisma.location.create({
@@ -207,10 +222,3 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
-
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
