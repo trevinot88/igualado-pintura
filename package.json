@@ -40,17 +40,17 @@
     "recharts": "^3.8.1",
     "resend": "^6.10.0",
     "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4",
+    "@tailwindcss/postcss": "^4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
-    "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"
   }
