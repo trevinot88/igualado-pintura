@@ -51,7 +51,7 @@ export function Sidebar() {
     <>
       {/* Mobile toggle */}
       <button
-        className="fixed top-4 left-4 z-50 lg:hidden rounded-md bg-slate-900 p-2 text-white"
+        className="fixed top-4 left-4 z-50 lg:hidden rounded-md bg-[#1e3a8a] p-2 text-white"
         onClick={() => setCollapsed(!collapsed)}
       >
         <Menu className="h-5 w-5" />
@@ -59,17 +59,17 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200 bg-white transition-all duration-300 dark:border-slate-800 dark:bg-slate-950",
+          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200 bg-white transition-all duration-300",
           collapsed ? "w-16" : "w-64",
           "max-lg:translate-x-0",
           collapsed ? "max-lg:-translate-x-full" : ""
         )}
       >
         {/* Brand */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
+          <div className="flex h-16 items-center justify-between border-b border-slate-200 px-4">
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold text-sm">
+              <div className="h-8 w-8 rounded-lg bg-[#1e3a8a] flex items-center justify-center text-white font-bold text-sm">
                 D
               </div>
               <span className="font-bold text-lg">DYRLO</span>
@@ -77,7 +77,7 @@ export function Sidebar() {
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:block rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="hidden lg:block rounded p-1 hover:bg-slate-100"
           >
             <ChevronLeft
               className={cn("h-5 w-5 transition-transform", collapsed && "rotate-180")}
@@ -96,8 +96,8 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   active
-                    ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-50"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
+                    ? "bg-blue-50 text-[#1e3a8a] font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-[#1e3a8a]"
                 )}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -108,7 +108,7 @@ export function Sidebar() {
         </nav>
 
         {/* User + Logout */}
-        <div className="border-t border-slate-200 p-3 dark:border-slate-800">
+          <div className="border-t border-slate-200 p-3">
           {!collapsed && session?.user && (
             <div className="mb-2 px-3">
               <p className="text-sm font-medium truncate">{session.user.name}</p>
@@ -117,7 +117,7 @@ export function Sidebar() {
           )}
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-[#1e3a8a]"
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
             {!collapsed && <span>Cerrar Sesión</span>}
