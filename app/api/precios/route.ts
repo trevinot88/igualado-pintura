@@ -4,6 +4,9 @@ import { logAudit } from "@/lib/audit";
 import { requireRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { DEMO_PRECIOS } from "@/lib/demo-data";
+
+const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 const groupSchema = z.object({
   name: z.string().min(1),
@@ -21,6 +24,8 @@ const tierSchema = z.object({
 export async function GET() {
   const session = await auth();
   requireRole(session?.user, ["ADMIN", "VENDEDOR", "IGUALADOR"]);
+
+  if (DEMO_MODE) return NextResponse.json(DEMO_PRECIOS);
 
   const groups = await prisma.colorGroup.findMany({
     where: { active: true },

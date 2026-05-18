@@ -3,6 +3,9 @@ import Credentials from "next-auth/providers/credentials";
 import authConfig from "./auth.config";
 import { prisma } from "./prisma";
 import { createHash } from "crypto";
+import { DEMO_USER } from "./demo-data";
+
+const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 function verifyPassword(plain: string, hashed: string): boolean {
   return createHash("sha256").update(plain).digest("hex") === hashed;
@@ -21,6 +24,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        // Demo mode: allow hardcoded demo credentials without DB
+        if (DEMO_MODE && credentials.email === "admin@dyrlo.com" && credentials.password === "admin123") {
+          return DEMO_USER;
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string, active: true },

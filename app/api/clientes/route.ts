@@ -4,6 +4,9 @@ import { logAudit } from "@/lib/audit";
 import { requireRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { DEMO_CLIENTES } from "@/lib/demo-data";
+
+const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 const clientSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
@@ -17,6 +20,8 @@ const clientSchema = z.object({
 export async function GET(req: Request) {
   const session = await auth();
   requireRole(session?.user, ["ADMIN", "VENDEDOR"]);
+
+  if (DEMO_MODE) return NextResponse.json(DEMO_CLIENTES);
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") || "";

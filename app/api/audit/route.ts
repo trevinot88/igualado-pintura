@@ -2,10 +2,15 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
+import { DEMO_AUDIT } from "@/lib/demo-data";
+
+const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 export async function GET(req: Request) {
   const session = await auth();
   requireRole(session?.user, ["ADMIN"]);
+
+  if (DEMO_MODE) return NextResponse.json(DEMO_AUDIT);
 
   const { searchParams } = new URL(req.url);
   const entity = searchParams.get("entity");

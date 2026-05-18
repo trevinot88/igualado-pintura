@@ -6,6 +6,9 @@ import { generateFolio } from "@/lib/folio";
 import { calculatePrice } from "@/lib/pricing";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { DEMO_PEDIDOS } from "@/lib/demo-data";
+
+const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 const createOrderSchema = z.object({
   clientId: z.string().min(1),
@@ -19,6 +22,8 @@ const createOrderSchema = z.object({
 export async function GET(req: Request) {
   const session = await auth();
   const user = requireRole(session?.user, ["ADMIN", "VENDEDOR", "IGUALADOR"]);
+
+  if (DEMO_MODE) return NextResponse.json(DEMO_PEDIDOS);
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");

@@ -5,6 +5,9 @@ import { requireRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createHash } from "crypto";
+import { DEMO_USUARIOS } from "@/lib/demo-data";
+
+const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 const createUserSchema = z.object({
   name: z.string().min(1),
@@ -17,6 +20,8 @@ const createUserSchema = z.object({
 export async function GET() {
   const session = await auth();
   requireRole(session?.user, ["ADMIN"]);
+
+  if (DEMO_MODE) return NextResponse.json(DEMO_USUARIOS);
 
   const users = await prisma.user.findMany({
     where: { active: true },

@@ -2,6 +2,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
+import { DEMO_REPORTES } from "@/lib/demo-data";
+
+const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -10,6 +13,8 @@ export async function GET(req: Request) {
   } catch {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+
+  if (DEMO_MODE) return NextResponse.json(DEMO_REPORTES);
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");

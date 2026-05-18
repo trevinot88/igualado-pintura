@@ -4,11 +4,16 @@ import { logAudit } from "@/lib/audit";
 import { requireRole, canReorderQueue } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { DEMO_PRODUCCION } from "@/lib/demo-data";
+
+const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 // GET: Production queue (FIFO)
 export async function GET() {
   const session = await auth();
   requireRole(session?.user, ["ADMIN", "VENDEDOR", "IGUALADOR"]);
+
+  if (DEMO_MODE) return NextResponse.json(DEMO_PRODUCCION);
 
   const queue = await prisma.order.findMany({
     where: { status: { in: ["PENDIENTE", "EN_PROCESO"] } },
