@@ -1,12 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { logAudit } from "@/lib/audit";
+import { logAudit, logOrderEdit } from "@/lib/audit";
 import { requireRole, canEditOrder } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 const updateOrderSchema = z.object({
   colorGroupId: z.string().optional(),
+  igualacionLineId: z.string().optional(),
   colorName: z.string().optional(),
   liters: z.number().positive().optional(),
   source: z.enum(["MOSTRADOR", "VENTAS", "WHATSAPP", "REDES_SOCIALES"]).optional(),
@@ -18,7 +19,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  requireRole(session?.user, ["ADMIN", "VENDEDOR", "IGUALADOR"]);
+  requireRole(session?.user, ["ADMIN", "FACTURACION", "IGUALADOR", "VENDEDOR_READONLY"]);
 
   const { id } = await params;
   const order = await prisma.order.findUnique({
@@ -27,8 +28,8 @@ export async function GET(
       client: true,
       seller: { select: { id: true, name: true, email: true } },
       igualador: { select: { id: true, name: true, email: true } },
-      colorGroup: { include: { priceTiers: { orderBy: { minLiters: "asc" } } } },
-      payments: { orderBy: { createdAt: "desc" } },
+      colorGroup: { select: { id: true, name: true } },
+      igualacionLine: { select: { id: true, code: true, name: true } },
       labels: { orderBy: { printedAt: "desc" } },
       location: { select: { name: true } },
     },
@@ -46,7 +47,7 @@ export async function GET(
   return NextResponse.json({ ...order, auditTrail });
 }
 
-export async function PUT(
+export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -63,7 +64,7 @@ export async function PUT(
 
   if (order.status !== "PENDIENTE") {
     return NextResponse.json(
-      { error: "Solo se pueden editar pedidos PENDIENTE" },
+      { error: "Solo se pueden editar pedidos PENDIENTES" },
       { status: 400 }
     );
   }
@@ -71,32 +72,22 @@ export async function PUT(
   const body = await req.json();
   const data = updateOrderSchema.parse(body);
 
-  // Recalculate price if liters or group changed
-  let priceData = {};
-  if (data.liters || data.colorGroupId) {
-    const { calculatePrice } = await import("@/lib/pricing");
-    const result = await calculatePrice(
-      data.colorGroupId || order.colorGroupId,
-      data.liters || order.liters
-    );
-    priceData = {
-      pricePerLiter: result.pricePerLiter,
-      totalPrice: result.totalPrice,
-    };
-  }
-
   const updated = await prisma.order.update({
     where: { id },
-    data: { ...data, ...priceData },
+    data,
+    include: {
+      client: { select: { name: true } },
+      colorGroup: { select: { name: true } },
+      igualacionLine: { select: { name: true } },
+    },
   });
 
-  await logAudit({
-    userId: user.id,
-    action: "UPDATE",
-    entity: "Order",
-    entityId: id,
-    changes: { ...data, ...priceData },
-  });
+  await logOrderEdit(
+    user.id,
+    id,
+    order as unknown as Record<string, unknown>,
+    updated as unknown as Record<string, unknown>
+  );
 
   return NextResponse.json(updated);
 }
@@ -117,12 +108,9 @@ export async function DELETE(
     data: { status: "CANCELADO", cancelledAt: new Date() },
   });
 
-  await logAudit({
-    userId: user.id,
-    action: "STATUS_CHANGED",
-    entity: "Order",
-    entityId: id,
-    changes: { status: { from: order.status, to: "CANCELADO" } },
+  await logAudit(user.id, "DELETE", "Order", id, {
+    folio: order.folio,
+    action: "cancelled",
   });
 
   return NextResponse.json({ ok: true });

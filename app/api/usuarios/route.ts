@@ -13,7 +13,7 @@ const createUserSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(6),
-  role: z.enum(["ADMIN", "VENDEDOR", "IGUALADOR"]),
+  role: z.enum(["ADMIN", "FACTURACION", "IGUALADOR", "VENDEDOR_READONLY"]),
   locationId: z.string().optional(),
 });
 
@@ -73,12 +73,10 @@ export async function POST(req: Request) {
     },
   });
 
-  await logAudit({
-    userId: user.id,
-    action: "CREATE",
-    entity: "User",
-    entityId: newUser.id,
-    changes: { name: data.name, email: data.email, role: data.role },
+  await logAudit(user.id, "CREATE", "User", newUser.id, {
+    name: data.name,
+    email: data.email,
+    role: data.role,
   });
 
   return NextResponse.json(newUser, { status: 201 });

@@ -21,10 +21,9 @@ async function main() {
   // Clean existing data (order matters for FK constraints)
   await prisma.auditLog.deleteMany();
   await prisma.label.deleteMany();
-  await prisma.payment.deleteMany();
   await prisma.order.deleteMany();
   await prisma.folioSequence.deleteMany();
-  await prisma.priceTier.deleteMany();
+  await prisma.igualacionLine.deleteMany();
   await prisma.colorGroup.deleteMany();
   await prisma.client.deleteMany();
   await prisma.user.deleteMany();
@@ -39,7 +38,7 @@ async function main() {
     },
   });
 
-  // Create users
+  // Create users with new roles
   const admin = await prisma.user.create({
     data: {
       name: "Administrador",
@@ -50,12 +49,12 @@ async function main() {
     },
   });
 
-  const vendedor = await prisma.user.create({
+  const facturacion = await prisma.user.create({
     data: {
       name: "María García",
-      email: "vendedor@dyrlo.com",
-      hashedPassword: hashPassword("vendedor123"),
-      role: "VENDEDOR",
+      email: "facturacion@dyrlo.com",
+      hashedPassword: hashPassword("facturacion123"),
+      role: "FACTURACION",
       locationId: location.id,
     },
   });
@@ -70,160 +69,231 @@ async function main() {
     },
   });
 
-  // Create color groups with price tiers
-  const colorGroups = [
-    {
+  const vendedor = await prisma.user.create({
+    data: {
+      name: "Pedro Rodríguez",
+      email: "vendedor@dyrlo.com",
+      hashedPassword: hashPassword("vendedor123"),
+      role: "VENDEDOR_READONLY",
+      locationId: location.id,
+    },
+  });
+
+  // Create color groups (sin price tiers)
+  const basicos = await prisma.colorGroup.create({
+    data: {
       name: "Básicos",
       description: "Blancos, negros y grises",
       sortOrder: 1,
-      tiers: [
-        { minLiters: 0.5, maxLiters: 3.99, pricePerLiter: 180 },
-        { minLiters: 4, maxLiters: 9.99, pricePerLiter: 160 },
-        { minLiters: 10, maxLiters: 19.99, pricePerLiter: 140 },
-        { minLiters: 20, maxLiters: 999, pricePerLiter: 120 },
-      ],
     },
-    {
+  });
+
+  const pasteles = await prisma.colorGroup.create({
+    data: {
       name: "Pasteles",
       description: "Tonos suaves y pastel",
       sortOrder: 2,
-      tiers: [
-        { minLiters: 0.5, maxLiters: 3.99, pricePerLiter: 220 },
-        { minLiters: 4, maxLiters: 9.99, pricePerLiter: 200 },
-        { minLiters: 10, maxLiters: 19.99, pricePerLiter: 180 },
-        { minLiters: 20, maxLiters: 999, pricePerLiter: 160 },
-      ],
     },
-    {
+  });
+
+  const medios = await prisma.colorGroup.create({
+    data: {
       name: "Medios",
       description: "Tonos medios y saturados",
       sortOrder: 3,
-      tiers: [
-        { minLiters: 0.5, maxLiters: 3.99, pricePerLiter: 260 },
-        { minLiters: 4, maxLiters: 9.99, pricePerLiter: 240 },
-        { minLiters: 10, maxLiters: 19.99, pricePerLiter: 220 },
-        { minLiters: 20, maxLiters: 999, pricePerLiter: 200 },
-      ],
     },
-    {
+  });
+
+  const intensos = await prisma.colorGroup.create({
+    data: {
       name: "Intensos",
       description: "Rojos, azules intensos, amarillos",
       sortOrder: 4,
-      tiers: [
-        { minLiters: 0.5, maxLiters: 3.99, pricePerLiter: 320 },
-        { minLiters: 4, maxLiters: 9.99, pricePerLiter: 290 },
-        { minLiters: 10, maxLiters: 19.99, pricePerLiter: 260 },
-        { minLiters: 20, maxLiters: 999, pricePerLiter: 240 },
-      ],
     },
-    {
+  });
+
+  const especiales = await prisma.colorGroup.create({
+    data: {
       name: "Especiales",
       description: "Metálicos, perlados, fluorescentes",
       sortOrder: 5,
-      tiers: [
-        { minLiters: 0.5, maxLiters: 3.99, pricePerLiter: 400 },
-        { minLiters: 4, maxLiters: 9.99, pricePerLiter: 360 },
-        { minLiters: 10, maxLiters: 19.99, pricePerLiter: 330 },
-        { minLiters: 20, maxLiters: 999, pricePerLiter: 300 },
-      ],
+    },
+  });
+
+  // Create igualacion lines
+  const lineComex = await prisma.igualacionLine.create({
+    data: {
+      code: "COMEX",
+      name: "Comex",
+      description: "Línea de igualación Comex",
+      sortOrder: 1,
+    },
+  });
+
+  const lineBerel = await prisma.igualacionLine.create({
+    data: {
+      code: "BEREL",
+      name: "Berel",
+      description: "Línea de igualación Berel",
+      sortOrder: 2,
+    },
+  });
+
+  const lineSherwin = await prisma.igualacionLine.create({
+    data: {
+      code: "SHERWIN",
+      name: "Sherwin Williams",
+      description: "Línea de igualación Sherwin Williams",
+      sortOrder: 3,
+    },
+  });
+
+  // Create sample clients
+  const cliente1 = await prisma.client.create({
+    data: {
+      name: "Juan Pérez",
+      email: "juan@email.com",
+      phone: "555-111-1111",
+      company: "Pinturas JP",
+    },
+  });
+
+  const cliente2 = await prisma.client.create({
+    data: {
+      name: "Ana Martínez",
+      email: "ana@email.com",
+      phone: "555-222-2222",
+      allowCredit: true,
+    },
+  });
+
+  const cliente3 = await prisma.client.create({
+    data: {
+      name: "Roberto Sánchez",
+      phone: "555-333-3333",
+      company: "Constructora RS",
+    },
+  });
+
+  // Initialize folio sequence (new daily format YYMMDD)
+  const now = new Date();
+  const prefix = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+
+  await prisma.folioSequence.create({
+    data: { id: prefix, lastValue: 0 },
+  });
+
+  // Create sample orders (with new status values)
+  const sampleOrders = [
+    {
+      colorName: "Blanco Hueso",
+      liters: 4,
+      group: basicos,
+      line: lineComex,
+      source: "MOSTRADOR" as const,
+      status: "PENDIENTE" as const,
+      queuePosition: 1,
+    },
+    {
+      colorName: "Rosa Pastel",
+      liters: 2,
+      group: pasteles,
+      line: lineBerel,
+      source: "VENTAS" as const,
+      status: "PENDIENTE" as const,
+      queuePosition: 2,
+    },
+    {
+      colorName: "Azul Cielo",
+      liters: 8,
+      group: medios,
+      line: lineSherwin,
+      source: "WHATSAPP" as const,
+      status: "PENDIENTE" as const,
+      queuePosition: 3,
+    },
+    {
+      colorName: "Rojo Ferrari",
+      liters: 1,
+      group: intensos,
+      line: lineComex,
+      source: "MOSTRADOR" as const,
+      status: "EN_PROCESO" as const,
+      queuePosition: 4,
+      igualadorId: igualador.id,
+      startedAt: new Date(),
+    },
+    {
+      colorName: "Verde Jade",
+      liters: 12,
+      group: medios,
+      line: lineBerel,
+      source: "VENTAS" as const,
+      status: "LISTO" as const,
+      queuePosition: 5,
+      igualadorId: igualador.id,
+      startedAt: new Date(Date.now() - 3600000),
+      completedAt: new Date(),
+      productionTimeMinutes: 60,
+    },
+    {
+      colorName: "Dorado Metálico",
+      liters: 3,
+      group: especiales,
+      line: lineSherwin,
+      source: "REDES_SOCIALES" as const,
+      status: "ENTREGADO" as const,
+      queuePosition: 6,
+      igualadorId: igualador.id,
+      startedAt: new Date(Date.now() - 7200000),
+      completedAt: new Date(Date.now() - 3600000),
+      deliveredAt: new Date(),
+      productionTimeMinutes: 90,
     },
   ];
 
-  const createdGroups = [];
-  for (const group of colorGroups) {
-    const { tiers, ...groupData } = group;
-    const created = await prisma.colorGroup.create({
-      data: {
-        ...groupData,
-        priceTiers: { create: tiers },
-      },
-    });
-    createdGroups.push(created);
-  }
-
-  // Create sample clients
-  const clients = await Promise.all([
-    prisma.client.create({
-      data: { name: "Juan Pérez", email: "juan@email.com", phone: "555-111-1111", company: "Pinturas JP" },
-    }),
-    prisma.client.create({
-      data: { name: "Ana Martínez", email: "ana@email.com", phone: "555-222-2222", allowCredit: true },
-    }),
-    prisma.client.create({
-      data: { name: "Roberto Sánchez", phone: "555-333-3333", company: "Constructora RS" },
-    }),
-  ]);
-
-  // Create sample orders
-  const sampleOrders = [
-    { colorName: "Blanco Hueso", liters: 4, groupIdx: 0, source: "MOSTRADOR" as const, status: "PENDIENTE" as const },
-    { colorName: "Rosa Pastel", liters: 2, groupIdx: 1, source: "VENTAS" as const, status: "PENDIENTE" as const },
-    { colorName: "Azul Cielo", liters: 8, groupIdx: 2, source: "WHATSAPP" as const, status: "PENDIENTE" as const },
-    { colorName: "Rojo Ferrari", liters: 1, groupIdx: 3, source: "MOSTRADOR" as const, status: "EN_PROCESO" as const },
-    { colorName: "Verde Jade", liters: 12, groupIdx: 2, source: "VENTAS" as const, status: "LISTO" as const },
-    { colorName: "Dorado Metálico", liters: 3, groupIdx: 4, source: "REDES_SOCIALES" as const, status: "FACTURADO" as const },
-    { colorName: "Gris Perla", liters: 20, groupIdx: 0, source: "MOSTRADOR" as const, status: "PAGADO" as const },
-    { colorName: "Amarillo Sol", liters: 5, groupIdx: 3, source: "VENTAS" as const, status: "ENTREGADO" as const },
-    { colorName: "Negro Mate", liters: 10, groupIdx: 0, source: "MOSTRADOR" as const, status: "PENDIENTE" as const },
-    { colorName: "Turquesa", liters: 6, groupIdx: 2, source: "WHATSAPP" as const, status: "PENDIENTE" as const },
-  ];
-
-  // Initialize folio sequence
-  const now = new Date();
-  const prefix = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, "0")}`;
-
-  await prisma.folioSequence.create({
-    data: { id: prefix, lastValue: 10 },
-  });
-
   for (let i = 0; i < sampleOrders.length; i++) {
     const o = sampleOrders[i];
-    const group = createdGroups[o.groupIdx];
-    const tier = colorGroups[o.groupIdx].tiers.find(
-      (t) => o.liters >= t.minLiters && o.liters <= t.maxLiters
-    )!;
-    const totalPrice = Math.round(tier.pricePerLiter * o.liters * 100) / 100;
-    const folio = `${prefix}-${String(i + 1).padStart(5, "0")}`;
+    const folio = `${prefix}-${String(i + 1).padStart(2, "0")}`;
 
     await prisma.order.create({
       data: {
         folio,
-        clientId: clients[i % clients.length].id,
-        sellerId: vendedor.id,
-        igualadorId: o.status !== "PENDIENTE" ? igualador.id : undefined,
-        colorGroupId: group.id,
+        clientId: [cliente1.id, cliente2.id, cliente3.id][i % 3],
+        sellerId: facturacion.id,
+        igualadorId: o.igualadorId,
+        colorGroupId: o.group.id,
+        igualacionLineId: o.line?.id,
         colorName: o.colorName,
         liters: o.liters,
-        pricePerLiter: tier.pricePerLiter,
-        totalPrice,
         source: o.source,
         status: o.status,
-        queuePosition: i + 1,
+        queuePosition: o.queuePosition,
+        startedAt: o.startedAt,
+        completedAt: o.completedAt,
+        deliveredAt: o.deliveredAt,
+        productionTimeMinutes: o.productionTimeMinutes,
         locationId: location.id,
-        startedAt: o.status !== "PENDIENTE" ? new Date(Date.now() - 3600000 * (10 - i)) : undefined,
-        completedAt: ["LISTO", "FACTURADO", "PAGADO", "ENTREGADO"].includes(o.status)
-          ? new Date(Date.now() - 3600000 * (8 - i))
-          : undefined,
-        productionTimeMinutes: ["LISTO", "FACTURADO", "PAGADO", "ENTREGADO"].includes(o.status)
-          ? Math.floor(Math.random() * 60) + 15
-          : undefined,
       },
     });
   }
 
-  console.log("Seed complete!");
-  console.log("Users created:");
-  console.log("  admin@dyrlo.com / admin123");
-  console.log("  vendedor@dyrlo.com / vendedor123");
-  console.log("  igualador@dyrlo.com / igualador123");
+  console.log("✅ Seed completed!");
+  console.log("\n📋 Usuarios creados:");
+  console.log("  - admin@dyrlo.com / admin123 (ADMIN)");
+  console.log("  - facturacion@dyrlo.com / facturacion123 (FACTURACION)");
+  console.log("  - igualador@dyrlo.com / igualador123 (IGUALADOR)");
+  console.log("  - vendedor@dyrlo.com / vendedor123 (VENDEDOR_READONLY)");
+  console.log(`\n📦 ${sampleOrders.length} pedidos creados`);
+  console.log(`🎨 5 grupos de color creados`);
+  console.log(`🔧 3 líneas de igualación creadas`);
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
+  .catch((e) => {
     console.error(e);
-    await prisma.$disconnect();
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });

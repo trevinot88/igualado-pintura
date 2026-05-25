@@ -23,7 +23,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  const user = requireRole(session?.user, ["ADMIN", "VENDEDOR", "IGUALADOR"]);
+  const user = requireRole(session?.user, ["ADMIN", "IGUALADOR"]);
 
   const { id } = await params;
   const body = await req.json();
@@ -112,12 +112,10 @@ export async function PATCH(
     data: updateData,
   });
 
-  await logAudit({
-    userId: user.id,
-    action: "STATUS_CHANGED",
-    entity: "Order",
-    entityId: id,
-    changes: { status: { from: order.status, to: newStatus } },
+  await logAudit(user.id, "STATUS_CHANGED", "Order", id, {
+    from: order.status,
+    to: newStatus,
+    folio: order.folio,
   });
 
   // Send email notification when order is ready (async, non-blocking)

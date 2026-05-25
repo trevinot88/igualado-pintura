@@ -11,7 +11,7 @@ const DEMO_MODE = process.env.DEMO_MODE === "true";
 // GET: Production queue (FIFO)
 export async function GET() {
   const session = await auth();
-  requireRole(session?.user, ["ADMIN", "VENDEDOR", "IGUALADOR"]);
+  requireRole(session?.user, ["ADMIN", "IGUALADOR"]);
 
   if (DEMO_MODE) return NextResponse.json(DEMO_PRODUCCION);
 
@@ -70,12 +70,7 @@ export async function PATCH(req: Request) {
     )
   );
 
-  await logAudit({
-    userId: user.id,
-    action: "QUEUE_REORDERED",
-    entity: "Order",
-    changes: { orderedIds },
-  });
+  await logAudit(user.id, "QUEUE_REORDERED", "Order", undefined, { orderedIds });
 
   return NextResponse.json({ ok: true });
 }

@@ -8,7 +8,7 @@ import { createHash } from "crypto";
 
 const updateUserSchema = z.object({
   name: z.string().min(1).optional(),
-  role: z.enum(["ADMIN", "VENDEDOR", "IGUALADOR"]).optional(),
+  role: z.enum(["ADMIN", "FACTURACION", "IGUALADOR", "VENDEDOR_READONLY"]).optional(),
   locationId: z.string().optional().nullable(),
   password: z.string().min(6).optional(),
   active: z.boolean().optional(),
@@ -40,13 +40,7 @@ export async function PUT(
     select: { id: true, name: true, email: true, role: true, locationId: true },
   });
 
-  await logAudit({
-    userId: user.id,
-    action: "UPDATE",
-    entity: "User",
-    entityId: id,
-    changes: data as Record<string, unknown>,
-  });
+  await logAudit(user.id, "UPDATE", "User", id, data as Record<string, unknown>);
 
   return NextResponse.json(updated);
 }
@@ -61,12 +55,7 @@ export async function DELETE(
   const { id } = await params;
   await prisma.user.update({ where: { id }, data: { active: false } });
 
-  await logAudit({
-    userId: user.id,
-    action: "DELETE",
-    entity: "User",
-    entityId: id,
-  });
+  await logAudit(user.id, "DELETE", "User", id, { deactivated: true });
 
   return NextResponse.json({ ok: true });
 }

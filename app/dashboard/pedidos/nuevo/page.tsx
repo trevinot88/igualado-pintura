@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardTitle } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +23,19 @@ interface Client {
 interface ColorGroup {
   id: string;
   name: string;
-  priceTiers: { minLiters: number; maxLiters: number; pricePerLiter: number }[];
+}
+
+interface IgualacionLine {
+  id: string;
+  code: string;
+  name: string;
 }
 
 export default function NuevoPedidoPage() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [groups, setGroups] = useState<ColorGroup[]>([]);
+  const [lines, setLines] = useState<IgualacionLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
   const [showNewClient, setShowNewClient] = useState(false);
@@ -38,13 +43,11 @@ export default function NuevoPedidoPage() {
   // Form state
   const [clientId, setClientId] = useState("");
   const [colorGroupId, setColorGroupId] = useState("");
+  const [igualacionLineId, setIgualacionLineId] = useState("");
   const [colorName, setColorName] = useState("");
   const [liters, setLiters] = useState<number>(1);
   const [source, setSource] = useState("MOSTRADOR");
   const [notes, setNotes] = useState("");
-
-  // Price preview
-  const [preview, setPreview] = useState<{ pricePerLiter: number; totalPrice: number } | null>(null);
 
   // New client form
   const [newClientName, setNewClientName] = useState("");
@@ -53,20 +56,9 @@ export default function NuevoPedidoPage() {
 
   useEffect(() => {
     fetch("/api/clientes").then((r) => r.json()).then(setClients);
-    fetch("/api/precios").then((r) => r.json()).then(setGroups);
+    fetch("/api/color-groups?active=true").then((r) => r.json()).then(setGroups);
+    fetch("/api/igualacion-lines?active=true").then((r) => r.json()).then(setLines);
   }, []);
-
-  // Calculate price preview
-  useEffect(() => {
-    if (!colorGroupId || !liters) {
-      setPreview(null);
-      return;
-    }
-    fetch(`/api/precios/calcular?colorGroupId=${colorGroupId}&liters=${liters}`)
-      .then((r) => r.json())
-      .then(setPreview)
-      .catch(() => setPreview(null));
-  }, [colorGroupId, liters]);
 
   async function handleCreateClient() {
     const res = await fetch("/api/clientes", {
@@ -94,7 +86,15 @@ export default function NuevoPedidoPage() {
     const res = await fetch("/api/pedidos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, colorGroupId, colorName, liters, source, notes }),
+      body: JSON.stringify({
+        clientId,
+        colorGroupId,
+        igualacionLineId: igualacionLineId || undefined,
+        colorName,
+        liters,
+        source,
+        notes,
+      }),
     });
 
     if (res.ok) {
@@ -134,7 +134,9 @@ export default function NuevoPedidoPage() {
             />
             <Dialog open={showNewClient} onOpenChange={setShowNewClient}>
               <DialogTrigger asChild>
-                <Button variant="outline" type="button">+ Nuevo</Button>
+                <Button variant="outline" type="button">
+                  + Nuevo
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -157,7 +159,11 @@ export default function NuevoPedidoPage() {
                     value={newClientPhone}
                     onChange={(e) => setNewClientPhone(e.target.value)}
                   />
-                  <Button type="button" onClick={handleCreateClient} disabled={!newClientName}>
+                  <Button
+                    type="button"
+                    onClick={handleCreateClient}
+                    disabled={!newClientName}
+                  >
                     Crear Cliente
                   </Button>
                 </div>
@@ -208,6 +214,22 @@ export default function NuevoPedidoPage() {
           </div>
 
           <div className="space-y-2">
+            <label className="text-sm font-medium">Línea de Igualación (opcional)</label>
+            <select
+              className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              value={igualacionLineId}
+              onChange={(e) => setIgualacionLineId(e.target.value)}
+            >
+              <option value="">-- Seleccionar --</option>
+              {lines.map((line) => (
+                <option key={line.id} value={line.id}>
+                  {line.code} - {line.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-sm font-medium">Nombre del Color</label>
             <Input
               placeholder="Ej: Azul Cielo, Rojo Ferrari..."
@@ -228,20 +250,6 @@ export default function NuevoPedidoPage() {
               required
             />
           </div>
-
-          {/* Price Preview */}
-          {preview && (
-            <div className="bg-slate-50 dark:bg-slate-900 rounded-md p-4 mt-2">
-              <div className="flex justify-between text-sm">
-                <span>Precio por litro:</span>
-                <span className="font-medium">{formatCurrency(preview.pricePerLiter)}</span>
-              </div>
-              <div className="flex justify-between text-lg font-bold mt-1">
-                <span>Total:</span>
-                <span className="text-green-600">{formatCurrency(preview.totalPrice)}</span>
-              </div>
-            </div>
-          )}
         </Card>
 
         {/* Source & Notes */}

@@ -19,7 +19,7 @@ const clientSchema = z.object({
 
 export async function GET(req: Request) {
   const session = await auth();
-  requireRole(session?.user, ["ADMIN", "VENDEDOR"]);
+  requireRole(session?.user, ["ADMIN", "FACTURACION"]);
 
   if (DEMO_MODE) return NextResponse.json(DEMO_CLIENTES);
 
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  const user = requireRole(session?.user, ["ADMIN", "VENDEDOR"]);
+  const user = requireRole(session?.user, ["ADMIN", "FACTURACION"]);
 
   const body = await req.json();
   const data = clientSchema.parse(body);
@@ -64,13 +64,7 @@ export async function POST(req: Request) {
     },
   });
 
-  await logAudit({
-    userId: user.id,
-    action: "CREATE",
-    entity: "Client",
-    entityId: client.id,
-    changes: data as Record<string, unknown>,
-  });
+  await logAudit(user.id, "CREATE", "Client", client.id, data as Record<string, unknown>);
 
   return NextResponse.json(client, { status: 201 });
 }

@@ -20,7 +20,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  requireRole(session?.user, ["ADMIN", "VENDEDOR"]);
+  requireRole(session?.user, ["ADMIN", "FACTURACION", "VENDEDOR_READONLY"]);
 
   const { id } = await params;
   const client = await prisma.client.findUnique({
@@ -37,7 +37,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  const user = requireRole(session?.user, ["ADMIN", "VENDEDOR"]);
+  const user = requireRole(session?.user, ["ADMIN", "FACTURACION"]);
 
   const { id } = await params;
   const body = await req.json();
@@ -50,13 +50,7 @@ export async function PUT(
 
   const changes = buildChanges(before as unknown as Record<string, unknown>, data as Record<string, unknown>);
   if (changes) {
-    await logAudit({
-      userId: user.id,
-      action: "UPDATE",
-      entity: "Client",
-      entityId: id,
-      changes,
-    });
+    await logAudit(user.id, "UPDATE", "Client", id, { changes });
   }
 
   return NextResponse.json(client);
@@ -72,12 +66,7 @@ export async function DELETE(
   const { id } = await params;
   await prisma.client.update({ where: { id }, data: { active: false } });
 
-  await logAudit({
-    userId: user.id,
-    action: "DELETE",
-    entity: "Client",
-    entityId: id,
-  });
+  await logAudit(user.id, "DELETE", "Client", id, { deactivated: true });
 
   return NextResponse.json({ ok: true });
 }

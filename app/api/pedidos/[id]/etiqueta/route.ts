@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  const user = requireRole(session?.user, ["ADMIN", "VENDEDOR", "IGUALADOR"]);
+  const user = requireRole(session?.user, ["ADMIN", "FACTURACION", "IGUALADOR"]);
 
   const { id } = await params;
   const order = await prisma.order.findUnique({
@@ -49,12 +49,7 @@ export async function GET(
     },
   });
 
-  await logAudit({
-    userId: user.id,
-    action: "LABEL_PRINTED",
-    entity: "Order",
-    entityId: id,
-  });
+  await logAudit(user.id, "LABEL_PRINTED", "Order", id, { folio: order.folio });
 
   return new NextResponse(html, {
     headers: { "Content-Type": "text/html; charset=utf-8" },

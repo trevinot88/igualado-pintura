@@ -32,10 +32,8 @@ export async function GET(req: Request) {
     ordersToday,
     ordersTotal,
     litersToday,
-    revenueToday,
     queueCount,
     avgProductionTime,
-    unpaidOrders,
     salesByGroup,
     ordersBySource,
     productionDaily,
@@ -47,25 +45,15 @@ export async function GET(req: Request) {
       _sum: { liters: true },
       where: { createdAt: { gte: today }, status: { not: "CANCELADO" } },
     }),
-    prisma.order.aggregate({
-      _sum: { totalPrice: true },
-      where: { createdAt: { gte: today }, status: { not: "CANCELADO" } },
-    }),
     prisma.order.count({ where: { status: { in: ["PENDIENTE", "EN_PROCESO"] } } }),
     prisma.order.aggregate({
       _avg: { productionTimeMinutes: true },
       where: { productionTimeMinutes: { not: null } },
     }),
-    prisma.order.count({
-      where: {
-        status: { in: ["LISTO", "FACTURADO"] },
-        payments: { none: {} },
-      },
-    }),
     // Sales by group
     prisma.order.groupBy({
       by: ["colorGroupId"],
-      _sum: { totalPrice: true, liters: true },
+      _sum: { liters: true },
       _count: true,
       where: { status: { not: "CANCELADO" }, ...(from ? { createdAt: dateFilter } : {}) },
     }),
@@ -115,15 +103,12 @@ export async function GET(req: Request) {
       ordersToday,
       ordersTotal,
       litersToday: litersToday._sum.liters || 0,
-      revenueToday: revenueToday._sum.totalPrice || 0,
       queueCount,
       avgProductionTime: Math.round(avgProductionTime._avg.productionTimeMinutes || 0),
-      unpaidOrders,
     },
     charts: {
       salesByGroup: salesByGroup.map((g) => ({
         group: groupMap[g.colorGroupId] || g.colorGroupId,
-        revenue: g._sum.totalPrice || 0,
         liters: g._sum.liters || 0,
         count: g._count,
       })),

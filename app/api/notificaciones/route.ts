@@ -42,13 +42,7 @@ export async function POST(req: Request) {
     locationName: order.location?.name,
   });
 
-  await logAudit({
-    userId: user.id,
-    action: "EMAIL_SENT",
-    entity: "Order",
-    entityId: orderId,
-    metadata: { email: order.client.email },
-  });
+  await logAudit(user.id, "EMAIL_SENT", "Order", orderId, { email: order.client.email });
 
   return NextResponse.json({ ok: true });
 }
