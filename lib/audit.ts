@@ -1,27 +1,41 @@
 import { prisma } from "./prisma";
 import { AuditAction } from "@prisma/client";
 
-export async function logAudit({
-  userId,
-  action,
-  entity,
-  entityId,
-  changes,
-  metadata,
-}: {
-  userId?: string;
-  action: AuditAction;
-  entity: string;
-  entityId?: string;
-  changes?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-}) {
+export async function logAudit(
+  userId: string | undefined | null,
+  action: AuditAction,
+  entity: string,
+  entityId?: string,
+  metadata?: Record<string, unknown>
+) {
   await prisma.auditLog.create({
     data: {
-      userId,
+      userId: userId || null,
       action,
       entity,
       entityId,
+      metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined,
+    },
+  });
+}
+
+export async function logOrderEdit(
+  userId: string,
+  orderId: string,
+  oldData: Record<string, unknown>,
+  newData: Record<string, unknown>,
+  metadata?: Record<string, unknown>
+) {
+  const changes = buildChanges(oldData, newData);
+  
+  await prisma.auditLog.create({
+    data: {
+      userId,
+      action: "ORDER_EDITED",
+      entity: "Order",
+      entityId: orderId,
+      oldValues: JSON.parse(JSON.stringify(oldData)),
+      newValues: JSON.parse(JSON.stringify(newData)),
       changes: changes ? JSON.parse(JSON.stringify(changes)) : undefined,
       metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined,
     },

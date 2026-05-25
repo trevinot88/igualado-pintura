@@ -17,15 +17,9 @@ export function requireRole(
   return user;
 }
 
-export function canCreateOrder(role: Role): boolean {
-  return role === "ADMIN" || role === "VENDEDOR";
-}
+// ─── ROL: ADMIN ──────────────────────────────────────────
 
-export function canEditOrder(role: Role): boolean {
-  return role === "ADMIN";
-}
-
-export function canReorderQueue(role: Role): boolean {
+export function canManageCatalogs(role: Role): boolean {
   return role === "ADMIN";
 }
 
@@ -33,30 +27,66 @@ export function canManageUsers(role: Role): boolean {
   return role === "ADMIN";
 }
 
-export function canManagePrices(role: Role): boolean {
+export function canPauseOrder(role: Role): boolean {
   return role === "ADMIN";
 }
 
-// Status transitions allowed per role
+export function canReorderQueue(role: Role): boolean {
+  return role === "ADMIN";
+}
+
+export function canEditOrder(role: Role): boolean {
+  return role === "ADMIN";
+}
+
+// ─── ROL: FACTURACION ────────────────────────────────────
+
+export function canCreateOrder(role: Role): boolean {
+  return role === "ADMIN" || role === "FACTURACION";
+}
+
+export function canCreateClient(role: Role): boolean {
+  return role === "ADMIN" || role === "FACTURACION";
+}
+
+export function canMarkAsDelivered(role: Role): boolean {
+  return role === "ADMIN" || role === "FACTURACION";
+}
+
+// ─── ROL: IGUALADOR ──────────────────────────────────────
+
+export function canStartProduction(role: Role): boolean {
+  return role === "ADMIN" || role === "IGUALADOR";
+}
+
+export function canCompleteOrder(role: Role): boolean {
+  return role === "ADMIN" || role === "IGUALADOR";
+}
+
+// ─── ROL: VENDEDOR_READONLY ──────────────────────────────
+
+export function canViewOrders(role: Role): boolean {
+  return true; // Todos pueden ver (filtrado por scope en query)
+}
+
+// ─── Status Transitions ──────────────────────────────────
+
 const TRANSITIONS: Record<string, Record<string, Role[]>> = {
   PENDIENTE: {
     EN_PROCESO: ["ADMIN", "IGUALADOR"],
     CANCELADO: ["ADMIN"],
+    PAUSADO: ["ADMIN"],
   },
   EN_PROCESO: {
     LISTO: ["ADMIN", "IGUALADOR"],
     CANCELADO: ["ADMIN"],
+    PAUSADO: ["ADMIN"],
   },
   LISTO: {
-    FACTURADO: ["ADMIN", "VENDEDOR"],
-    CANCELADO: ["ADMIN"],
+    ENTREGADO: ["ADMIN", "FACTURACION"],
   },
-  FACTURADO: {
-    PAGADO: ["ADMIN", "VENDEDOR"],
-    CANCELADO: ["ADMIN"],
-  },
-  PAGADO: {
-    ENTREGADO: ["ADMIN", "VENDEDOR"],
+  PAUSADO: {
+    PENDIENTE: ["ADMIN"],
   },
   ENTREGADO: {},
   CANCELADO: {},

@@ -10,18 +10,18 @@ datasource db {
 
 enum Role {
   ADMIN
-  FACTURACION
+  VENDEDOR
   IGUALADOR
-  VENDEDOR_READONLY
 }
 
 enum OrderStatus {
   PENDIENTE
   EN_PROCESO
   LISTO
+  FACTURADO
+  PAGADO
   ENTREGADO
   CANCELADO
-  PAUSADO
 }
 
 enum OrderSource {
@@ -31,18 +31,22 @@ enum OrderSource {
   REDES_SOCIALES
 }
 
+enum PaymentMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+  CHEQUE
+  CREDITO
+}
+
 enum AuditAction {
   CREATE
   UPDATE
   DELETE
   STATUS_CHANGED
   QUEUE_REORDERED
-  ORDER_EDITED
-  ORDER_PAUSED
-  ORDER_QUEUE_MOVED
   LOGIN
   EMAIL_SENT
-  WHATSAPP_SENT
   LABEL_PRINTED
 }
 
@@ -65,7 +69,7 @@ model User {
   name           String
   email          String   @unique
   hashedPassword String
-  role           Role     @default(VENDEDOR_READONLY)
+  role           Role     @default(VENDEDOR)
   active         Boolean  @default(true)
   locationId     String?
   location       Location? @relation(fields: [locationId], references: [id])
@@ -99,60 +103,78 @@ model ColorGroup {
   sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  priceTiers  PriceTier[]
   orders      Order[]
 }
 
-model IgualacionLine {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String
-  description String?
-  active      Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  orders      Order[]
+model PriceTier {
+  id            String     @id @default(cuid())
+  colorGroupId  String
+  colorGroup    ColorGroup @relation(fields: [colorGroupId], references: [id], onDelete: Cascade)
+  minLiters     Float
+  maxLiters     Float
+  pricePerLiter Float
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([colorGroupId])
 }
 
 model FolioSequence {
-  id        String @id // format: "YYMMDD"
+  id        String @id // format: "YYMM"
   lastValue Int    @default(0)
 }
 
 model Order {
-  id                    String          @id @default(cuid())
-  folio                 String          @unique
+  id                    String      @id @default(cuid())
+  folio                 String      @unique
   clientId              String
-  client                Client          @relation(fields: [clientId], references: [id])
+  client                Client      @relation(fields: [clientId], references: [id])
   sellerId              String
-  seller                User            @relation("SellerOrders", fields: [sellerId], references: [id])
+  seller                User        @relation("SellerOrders", fields: [sellerId], references: [id])
   igualadorId           String?
-  igualador             User?           @relation("IgualadorOrders", fields: [igualadorId], references: [id])
+  igualador             User?       @relation("IgualadorOrders", fields: [igualadorId], references: [id])
   colorGroupId          String
-  colorGroup            ColorGroup      @relation(fields: [colorGroupId], references: [id])
-  igualacionLineId      String?
-  igualacionLine        IgualacionLine? @relation(fields: [igualacionLineId], references: [id])
+  colorGroup            ColorGroup  @relation(fields: [colorGroupId], references: [id])
   colorName             String
   liters                Float
-  source                OrderSource     @default(MOSTRADOR)
-  status                OrderStatus     @default(PENDIENTE)
+  pricePerLiter         Float
+  totalPrice            Float
+  source                OrderSource @default(MOSTRADOR)
+  status                OrderStatus @default(PENDIENTE)
   queuePosition         Int
   notes                 String?
   locationId            String?
-  location              Location?       @relation(fields: [locationId], references: [id])
+  location              Location?   @relation(fields: [locationId], references: [id])
   productionTimeMinutes Int?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
   startedAt             DateTime?
   completedAt           DateTime?
+  invoicedAt            DateTime?
+  paidAt                DateTime?
   deliveredAt           DateTime?
   cancelledAt           DateTime?
+  payments              Payment[]
   labels                Label[]
 
   @@index([status])
   @@index([folio])
   @@index([clientId])
   @@index([queuePosition])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  orderId   String
+  order     Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount    Float
+  method    PaymentMethod
+  reference String?
+  notes     String?
+  createdAt DateTime      @default(now())
+
+  @@index([orderId])
 }
 
 model Label {
@@ -172,8 +194,6 @@ model AuditLog {
   action    AuditAction
   entity    String
   entityId  String?
-  oldValues Json?
-  newValues Json?
   changes   Json?
   metadata  Json?
   createdAt DateTime    @default(now())

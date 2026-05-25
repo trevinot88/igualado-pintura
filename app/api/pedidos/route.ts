@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { requireRole, canCreateOrder } from "@/lib/permissions";
 import { generateFolio } from "@/lib/folio";
-import { calculatePrice } from "@/lib/pricing";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { DEMO_PEDIDOS } from "@/lib/demo-data";
@@ -13,6 +12,7 @@ const DEMO_MODE = process.env.DEMO_MODE === "true";
 const createOrderSchema = z.object({
   clientId: z.string().min(1),
   colorGroupId: z.string().min(1),
+  igualacionLineId: z.string().optional(),
   colorName: z.string().min(1),
   liters: z.number().positive(),
   source: z.enum(["MOSTRADOR", "VENTAS", "WHATSAPP", "REDES_SOCIALES"]).optional(),
@@ -21,7 +21,7 @@ const createOrderSchema = z.object({
 
 export async function GET(req: Request) {
   const session = await auth();
-  const user = requireRole(session?.user, ["ADMIN", "VENDEDOR", "IGUALADOR"]);
+  const user = requireRole(session?.user, ["ADMIN", "FACTURACION", "IGUALADOR", "VENDEDOR_READONLY"]);
 
   if (DEMO_MODE) return NextResponse.json(DEMO_PEDIDOS);
 
@@ -39,8 +39,8 @@ export async function GET(req: Request) {
   if (source) where.source = source;
   if (clientId) where.clientId = clientId;
 
-  // Scope: VENDEDOR sees only their orders
-  if (user.role === "VENDEDOR") {
+  // Scope: VENDEDOR_READONLY sees only their orders
+  if (user.role === "VENDEDOR_READONLY") {
     where.sellerId = user.id;
   }
 
@@ -65,6 +65,7 @@ export async function GET(req: Request) {
       seller: { select: { name: true } },
       igualador: { select: { name: true } },
       colorGroup: { select: { name: true } },
+      igualacionLine: { select: { name: true, code: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -74,7 +75,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  const user = requireRole(session?.user, ["ADMIN", "VENDEDOR"]);
+  const user = requireRole(session?.user, ["ADMIN", "FACTURACION"]);
 
   if (!canCreateOrder(user.role)) {
     return NextResponse.json({ error: "Sin permisos para crear pedidos" }, { status: 403 });
@@ -82,12 +83,6 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const data = createOrderSchema.parse(body);
-
-  // Calculate price
-  const { pricePerLiter, totalPrice } = await calculatePrice(
-    data.colorGroupId,
-    data.liters
-  );
 
   // Generate folio and queue position atomically
   const folio = await generateFolio();
@@ -103,10 +98,9 @@ export async function POST(req: Request) {
       clientId: data.clientId,
       sellerId: user.id,
       colorGroupId: data.colorGroupId,
+      igualacionLineId: data.igualacionLineId || null,
       colorName: data.colorName,
       liters: data.liters,
-      pricePerLiter,
-      totalPrice,
       source: data.source || "MOSTRADOR",
       notes: data.notes || null,
       queuePosition: (maxQueue._max.queuePosition || 0) + 1,
@@ -115,15 +109,13 @@ export async function POST(req: Request) {
     include: {
       client: { select: { name: true } },
       colorGroup: { select: { name: true } },
+      igualacionLine: { select: { name: true } },
     },
   });
 
-  await logAudit({
-    userId: user.id,
-    action: "CREATE",
-    entity: "Order",
-    entityId: order.id,
-    changes: { folio, ...data, pricePerLiter, totalPrice },
+  await logAudit(user.id, "CREATE", "Order", order.id, {
+    folio: order.folio,
+    clientId: data.clientId,
   });
 
   return NextResponse.json(order, { status: 201 });
