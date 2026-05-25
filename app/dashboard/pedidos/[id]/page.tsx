@@ -15,19 +15,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  formatCurrency,
   formatDate,
   formatMinutes,
   ORDER_STATUS_COLORS,
   ORDER_STATUS_LABELS,
   ORDER_SOURCE_LABELS,
-  PAYMENT_METHOD_LABELS,
 } from "@/lib/utils";
 import {
   ArrowLeft,
   Printer,
   Mail,
-  CreditCard,
   ChevronRight,
 } from "lucide-react";
 
@@ -36,8 +33,6 @@ interface OrderDetail {
   folio: string;
   colorName: string;
   liters: number;
-  pricePerLiter: number;
-  totalPrice: number;
   status: string;
   source: string;
   notes: string | null;
@@ -54,8 +49,8 @@ interface OrderDetail {
   seller: { id: string; name: string; email: string };
   igualador: { id: string; name: string; email: string } | null;
   colorGroup: { name: string };
+  igualacionLine: { id: string; code: string; name: string } | null;
   location: { name: string } | null;
-  payments: { id: string; amount: number; method: string; reference: string | null; notes: string | null; createdAt: string }[];
   labels: { id: string; printedAt: string }[];
   auditTrail: { id: string; action: string; changes: Record<string, unknown> | null; createdAt: string; user: { name: string } | null }[];
 }
@@ -63,22 +58,21 @@ interface OrderDetail {
 const STATUS_TRANSITIONS: Record<string, { next: string; label: string; roles: string[]; color: string }[]> = {
   PENDIENTE: [
     { next: "EN_PROCESO", label: "Iniciar Producción", roles: ["ADMIN", "IGUALADOR"], color: "bg-blue-600 hover:bg-blue-700" },
+    { next: "PAUSADO", label: "Pausar", roles: ["ADMIN"], color: "bg-yellow-600 hover:bg-yellow-700" },
     { next: "CANCELADO", label: "Cancelar", roles: ["ADMIN"], color: "bg-red-600 hover:bg-red-700" },
   ],
   EN_PROCESO: [
     { next: "LISTO", label: "Marcar como Listo", roles: ["ADMIN", "IGUALADOR"], color: "bg-green-600 hover:bg-green-700" },
+    { next: "PAUSADO", label: "Pausar", roles: ["ADMIN"], color: "bg-yellow-600 hover:bg-yellow-700" },
     { next: "CANCELADO", label: "Cancelar", roles: ["ADMIN"], color: "bg-red-600 hover:bg-red-700" },
   ],
   LISTO: [
-    { next: "FACTURADO", label: "Facturar", roles: ["ADMIN", "VENDEDOR"], color: "bg-purple-600 hover:bg-purple-700" },
+    { next: "ENTREGADO", label: "Marcar Entregado", roles: ["ADMIN", "FACTURACION"], color: "bg-gray-600 hover:bg-gray-700" },
     { next: "CANCELADO", label: "Cancelar", roles: ["ADMIN"], color: "bg-red-600 hover:bg-red-700" },
   ],
-  FACTURADO: [
-    { next: "PAGADO", label: "Marcar Pagado", roles: ["ADMIN", "VENDEDOR"], color: "bg-emerald-600 hover:bg-emerald-700" },
+  PAUSADO: [
+    { next: "PENDIENTE", label: "Reanudar", roles: ["ADMIN"], color: "bg-blue-600 hover:bg-blue-700" },
     { next: "CANCELADO", label: "Cancelar", roles: ["ADMIN"], color: "bg-red-600 hover:bg-red-700" },
-  ],
-  PAGADO: [
-    { next: "ENTREGADO", label: "Marcar Entregado", roles: ["ADMIN", "VENDEDOR"], color: "bg-gray-600 hover:bg-gray-700" },
   ],
 };
 
@@ -90,11 +84,6 @@ export default function OrderDetailPage() {
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showPayment, setShowPayment] = useState(false);
-  const [payAmount, setPayAmount] = useState("");
-  const [payMethod, setPayMethod] = useState("EFECTIVO");
-  const [payRef, setPayRef] = useState("");
-  const [payNotes, setPayNotes] = useState("");
 
   function fetchOrder() {
     fetch(`/api/pedidos/${id}`)
@@ -145,30 +134,8 @@ export default function OrderDetailPage() {
     alert("Email enviado");
   }
 
-  async function handleAddPayment() {
-    const res = await fetch(`/api/pedidos/${id}/pagos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount: parseFloat(payAmount),
-        method: payMethod,
-        reference: payRef || undefined,
-        notes: payNotes || undefined,
-      }),
-    });
-    if (res.ok) {
-      setShowPayment(false);
-      setPayAmount("");
-      setPayRef("");
-      setPayNotes("");
-      fetchOrder();
-    }
-  }
-
   if (loading || !order) return <div className="p-8 text-center">Cargando pedido...</div>;
 
-  const totalPaid = order.payments.reduce((sum, p) => sum + p.amount, 0);
-  const remaining = order.totalPrice - totalPaid;
   const transitions = STATUS_TRANSITIONS[order.status] || [];
   const allowedTransitions = transitions.filter((t) => t.roles.includes(role));
 
@@ -176,8 +143,6 @@ export default function OrderDetailPage() {
     { label: "Creado", date: order.createdAt, done: true },
     { label: "En Proceso", date: order.startedAt, done: !!order.startedAt },
     { label: "Listo", date: order.completedAt, done: !!order.completedAt },
-    { label: "Facturado", date: order.invoicedAt, done: !!order.invoicedAt },
-    { label: "Pagado", date: order.paidAt, done: !!order.paidAt },
     { label: "Entregado", date: order.deliveredAt, done: !!order.deliveredAt },
   ];
 
@@ -242,14 +207,12 @@ export default function OrderDetailPage() {
                 <dt className="text-slate-500">Litros</dt>
                 <dd>{order.liters}L</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Precio/Litro</dt>
-                <dd>{formatCurrency(order.pricePerLiter)}</dd>
-              </div>
-              <div className="flex justify-between border-t pt-2">
-                <dt className="text-slate-500 font-medium">Total</dt>
-                <dd className="font-bold text-lg">{formatCurrency(order.totalPrice)}</dd>
-              </div>
+              {order.igualacionLine && (
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Línea Igualación</dt>
+                  <dd>{order.igualacionLine.code} - {order.igualacionLine.name}</dd>
+                </div>
+              )}
               {order.productionTimeMinutes && (
                 <div className="flex justify-between">
                   <dt className="text-slate-500">Tiempo Producción</dt>
@@ -339,95 +302,6 @@ export default function OrderDetailPage() {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Payments */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <CardTitle>Pagos</CardTitle>
-          {(role === "ADMIN" || role === "VENDEDOR") && (
-            <Dialog open={showPayment} onOpenChange={setShowPayment}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline">
-                  <CreditCard className="h-4 w-4 mr-1" /> Registrar Pago
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Registrar Pago</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium">Monto</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={payAmount}
-                      onChange={(e) => setPayAmount(e.target.value)}
-                      placeholder={`Pendiente: ${formatCurrency(remaining)}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Método</label>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-                      value={payMethod}
-                      onChange={(e) => setPayMethod(e.target.value)}
-                    >
-                      {Object.entries(PAYMENT_METHOD_LABELS).map(([k, v]) => (
-                        <option key={k} value={k}>{v}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Referencia</label>
-                    <Input value={payRef} onChange={(e) => setPayRef(e.target.value)} placeholder="No. referencia" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Notas</label>
-                    <Input value={payNotes} onChange={(e) => setPayNotes(e.target.value)} placeholder="Notas..." />
-                  </div>
-                  <Button onClick={handleAddPayment} disabled={!payAmount || parseFloat(payAmount) <= 0} className="w-full">
-                    Registrar
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
-        <CardContent>
-          <div className="flex justify-between text-sm mb-3 font-medium">
-            <span>Total: {formatCurrency(order.totalPrice)}</span>
-            <span>Pagado: {formatCurrency(totalPaid)}</span>
-            <span className={remaining > 0 ? "text-red-600" : "text-green-600"}>
-              {remaining > 0 ? `Pendiente: ${formatCurrency(remaining)}` : "Pagado completo"}
-            </span>
-          </div>
-          {order.payments.length > 0 ? (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-slate-500">
-                  <th className="py-2">Monto</th>
-                  <th className="py-2">Método</th>
-                  <th className="py-2">Referencia</th>
-                  <th className="py-2">Fecha</th>
-                </tr>
-              </thead>
-              <tbody>
-                {order.payments.map((p) => (
-                  <tr key={p.id} className="border-b border-slate-100">
-                    <td className="py-2 font-medium">{formatCurrency(p.amount)}</td>
-                    <td className="py-2">{PAYMENT_METHOD_LABELS[p.method] || p.method}</td>
-                    <td className="py-2 text-slate-500">{p.reference || "—"}</td>
-                    <td className="py-2 text-slate-500">{formatDate(p.createdAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="text-sm text-slate-500 text-center py-4">Sin pagos registrados</p>
-          )}
         </CardContent>
       </Card>
 

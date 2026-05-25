@@ -39,9 +39,8 @@ export function formatMinutes(minutes: number): string {
 export const ORDER_STATUS_LABELS: Record<string, string> = {
   PENDIENTE: "Pendiente",
   EN_PROCESO: "En Proceso",
+  PAUSADO: "Pausado",
   LISTO: "Listo",
-  FACTURADO: "Facturado",
-  PAGADO: "Pagado",
   ENTREGADO: "Entregado",
   CANCELADO: "Cancelado",
 };
@@ -49,9 +48,8 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 export const ORDER_STATUS_COLORS: Record<string, string> = {
   PENDIENTE: "bg-yellow-100 text-yellow-800",
   EN_PROCESO: "bg-blue-100 text-blue-800",
+  PAUSADO: "bg-orange-100 text-orange-800",
   LISTO: "bg-green-100 text-green-800",
-  FACTURADO: "bg-purple-100 text-purple-800",
-  PAGADO: "bg-emerald-100 text-emerald-800",
   ENTREGADO: "bg-gray-100 text-gray-800",
   CANCELADO: "bg-red-100 text-red-800",
 };
@@ -61,12 +59,4 @@ export const ORDER_SOURCE_LABELS: Record<string, string> = {
   VENTAS: "Ventas",
   WHATSAPP: "WhatsApp",
   REDES_SOCIALES: "Redes Sociales",
-};
-
-export const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  EFECTIVO: "Efectivo",
-  TRANSFERENCIA: "Transferencia",
-  TARJETA: "Tarjeta",
-  CHEQUE: "Cheque",
-  CREDITO: "Crédito",
 };

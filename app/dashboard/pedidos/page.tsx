@@ -19,7 +19,6 @@ interface Order {
   folio: string;
   colorName: string;
   liters: number;
-  totalPrice: number;
   status: string;
   source: string;
   createdAt: string;
@@ -51,9 +50,8 @@ export default function PedidosPage() {
     "",
     "PENDIENTE",
     "EN_PROCESO",
+    "PAUSADO",
     "LISTO",
-    "FACTURADO",
-    "PAGADO",
     "ENTREGADO",
     "CANCELADO",
   ];
@@ -107,7 +105,6 @@ export default function PedidosPage() {
                 <th className="text-left px-4 py-3 font-medium">Color</th>
                 <th className="text-left px-4 py-3 font-medium">Cliente</th>
                 <th className="text-left px-4 py-3 font-medium">Litros</th>
-                <th className="text-left px-4 py-3 font-medium">Total</th>
                 <th className="text-left px-4 py-3 font-medium">Canal</th>
                 <th className="text-left px-4 py-3 font-medium">Estado</th>
                 <th className="text-left px-4 py-3 font-medium">Fecha</th>
@@ -127,7 +124,6 @@ export default function PedidosPage() {
                   </td>
                   <td className="px-4 py-3">{order.client.name}</td>
                   <td className="px-4 py-3">{order.liters}L</td>
-                  <td className="px-4 py-3">{formatCurrency(order.totalPrice)}</td>
                   <td className="px-4 py-3 text-xs">
                     {ORDER_SOURCE_LABELS[order.source] || order.source}
                   </td>
