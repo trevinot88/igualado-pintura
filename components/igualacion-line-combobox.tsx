@@ -7,6 +7,7 @@ interface IgualacionLine {
   id: string;
   code: string;
   name: string;
+  description?: string;
 }
 
 interface IgualacionLineComboboxProps {

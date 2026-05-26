@@ -30,6 +30,7 @@ interface IgualacionLine {
   id: string;
   code: string;
   name: string;
+  description?: string;
 }
 
 export default function NuevoPedidoPage() {
@@ -221,10 +222,10 @@ export default function NuevoPedidoPage() {
               value={igualacionLineId}
               onChange={(lineId) => {
                 setIgualacionLineId(lineId);
-                // Auto-llenar nombre del color con la descripción de la línea
+                // Auto-llenar nombre del color con la descripción del producto
                 const selectedLine = lines.find(l => l.id === lineId);
-                if (selectedLine) {
-                  setColorName(selectedLine.name);
+                if (selectedLine && selectedLine.description) {
+                  setColorName(selectedLine.description);
                 }
               }}
               placeholder="Buscar por código o descripción..."
