@@ -31,9 +31,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN"] },
   { label: "Producción", href: "/dashboard/produccion", icon: Factory, roles: ["ADMIN", "IGUALADOR"] },
-  { label: "Nuevo Pedido", href: "/dashboard/pedidos/nuevo", icon: PlusCircle, roles: ["ADMIN", "VENDEDOR"] },
-  { label: "Pedidos", href: "/dashboard/pedidos", icon: ClipboardList, roles: ["ADMIN", "VENDEDOR", "IGUALADOR"] },
-  { label: "Clientes", href: "/dashboard/clientes", icon: Users, roles: ["ADMIN", "VENDEDOR"] },
+  { label: "Nuevo Pedido", href: "/dashboard/pedidos/nuevo", icon: PlusCircle, roles: ["ADMIN", "FACTURACION"] },
+  { label: "Pedidos", href: "/dashboard/pedidos", icon: ClipboardList, roles: ["ADMIN", "FACTURACION", "VENDEDOR_READONLY", "IGUALADOR"] },
+  { label: "Clientes", href: "/dashboard/clientes", icon: Users, roles: ["ADMIN", "FACTURACION"] },
   { label: "Códigos de IG", href: "/dashboard/codigos-ig", icon: Code2, roles: ["ADMIN"] },
   { label: "Precios", href: "/dashboard/precios", icon: Palette, roles: ["ADMIN"] },
   { label: "Reportes", href: "/dashboard/reportes", icon: BarChart3, roles: ["ADMIN"] },

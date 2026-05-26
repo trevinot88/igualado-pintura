@@ -48,7 +48,12 @@ export async function POST(req: Request) {
   const body = await req.json();
   const data = createUserSchema.parse(body);
 
-  const existing = await prisma.user.findUnique({ where: { email: data.email } });
+  const existing = await prisma.user.findFirst({ 
+    where: { 
+      email: data.email,
+      active: true 
+    } 
+  });
   if (existing) {
     return NextResponse.json({ error: "Email ya registrado" }, { status: 400 });
   }

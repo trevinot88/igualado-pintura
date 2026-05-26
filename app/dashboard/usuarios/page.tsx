@@ -27,7 +27,8 @@ interface User {
 
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: "bg-red-100 text-red-800",
-  VENDEDOR: "bg-blue-100 text-blue-800",
+  FACTURACION: "bg-purple-100 text-purple-800",
+  VENDEDOR_READONLY: "bg-blue-100 text-blue-800",
   IGUALADOR: "bg-green-100 text-green-800",
 };
 
@@ -61,7 +62,7 @@ export default function UsuariosPage() {
     setName("");
     setEmail("");
     setPassword("");
-    setRole("VENDEDOR");
+    setRole("FACTURACION");
     setShowForm(true);
   }
 
@@ -142,8 +143,9 @@ export default function UsuariosPage() {
                   onChange={(e) => setRole(e.target.value)}
                 >
                   <option value="ADMIN">Admin</option>
-                  <option value="VENDEDOR">Vendedor</option>
+                  <option value="FACTURACION">Facturación</option>
                   <option value="IGUALADOR">Igualador</option>
+                  <option value="VENDEDOR_READONLY">Vendedor (Solo Lectura)</option>
                 </select>
               </div>
               <Button
