@@ -405,7 +405,7 @@ async function main() {
     await prisma.igualacionLine.create({
       data: {
         code: igualacionCodes[i].code,
-        name: igualacionCodes[i].code,
+        name: igualacionCodes[i].description,
         description: igualacionCodes[i].description,
         sortOrder: i + 1,
       },

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardTitle } from "@/components/ui/card";
+import { IgualacionLineCombobox } from "@/components/igualacion-line-combobox";
 import {
   Dialog,
   DialogContent,
@@ -215,18 +216,12 @@ export default function NuevoPedidoPage() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Línea de Igualación (opcional)</label>
-            <select
-              className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            <IgualacionLineCombobox
+              lines={lines}
               value={igualacionLineId}
-              onChange={(e) => setIgualacionLineId(e.target.value)}
-            >
-              <option value="">-- Seleccionar --</option>
-              {lines.map((line) => (
-                <option key={line.id} value={line.id}>
-                  {line.code} - {line.name}
-                </option>
-              ))}
-            </select>
+              onChange={setIgualacionLineId}
+              placeholder="Buscar por código o descripción..."
+            />
           </div>
 
           <div className="space-y-2">
