@@ -235,7 +235,7 @@ export default function CodigosIGPage() {
                         </Button>
                         <Button
                           size="sm"
-                          variant={line.active ? "secondary" : "default"}
+                          variant={line.active ? "outline" : "default"}
                           onClick={() => toggleActive(line)}
                         >
                           {line.active ? "Desactivar" : "Activar"}
