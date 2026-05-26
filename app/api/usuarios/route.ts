@@ -49,13 +49,28 @@ export async function POST(req: Request) {
   const data = createUserSchema.parse(body);
 
   const existing = await prisma.user.findFirst({ 
-    where: { 
-      email: data.email,
-      active: true 
-    } 
+    where: { email: data.email } 
   });
+  
   if (existing) {
-    return NextResponse.json({ error: "Email ya registrado" }, { status: 400 });
+    if (existing.active) {
+      return NextResponse.json({ error: `El email ya está en uso por el usuario: ${existing.name}` }, { status: 400 });
+    }
+    // If user exists but inactive, reactivate with new data
+    const hashedPassword = createHash("sha256").update(data.password).digest("hex");
+    const reactivated = await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        name: data.name,
+        hashedPassword,
+        role: data.role,
+        active: true,
+        locationId: data.locationId || null,
+      },
+      select: { id: true, name: true, email: true, role: true, locationId: true, createdAt: true },
+    });
+    await logAudit(user.id, "UPDATE", "User", reactivated.id, { action: "reactivated", name: data.name, role: data.role });
+    return NextResponse.json(reactivated, { status: 201 });
   }
 
   const hashedPassword = createHash("sha256").update(data.password).digest("hex");
