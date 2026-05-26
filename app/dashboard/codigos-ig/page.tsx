@@ -213,7 +213,13 @@ export default function CodigosIGPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant={line.active ? "default" : "secondary"}>
+                      <Badge
+                        className={
+                          line.active
+                            ? "bg-green-100 text-green-800"
+                            : "bg-slate-100 text-slate-600"
+                        }
+                      >
                         {line.active ? "Activo" : "Inactivo"}
                       </Badge>
                     </td>
