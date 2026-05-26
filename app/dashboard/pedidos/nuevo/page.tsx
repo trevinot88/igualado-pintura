@@ -33,6 +33,13 @@ interface IgualacionLine {
   description?: string;
 }
 
+interface OrderItem {
+  id: string; // temp ID for React keys
+  igualacionLineId: string;
+  colorName: string;
+  liters: number;
+}
+
 export default function NuevoPedidoPage() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
@@ -42,14 +49,16 @@ export default function NuevoPedidoPage() {
   const [clientSearch, setClientSearch] = useState("");
   const [showNewClient, setShowNewClient] = useState(false);
 
-  // Form state
+  // Shared form data
   const [clientId, setClientId] = useState("");
   const [colorGroupId, setColorGroupId] = useState("");
-  const [igualacionLineId, setIgualacionLineId] = useState("");
-  const [colorName, setColorName] = useState("");
-  const [liters, setLiters] = useState<number>(1);
   const [source, setSource] = useState("MOSTRADOR");
   const [notes, setNotes] = useState("");
+
+  // Order items (multiple products)
+  const [items, setItems] = useState<OrderItem[]>([
+    { id: crypto.randomUUID(), igualacionLineId: "", colorName: "", liters: 1 },
+  ]);
 
   // New client form
   const [newClientName, setNewClientName] = useState("");
@@ -81,30 +90,74 @@ export default function NuevoPedidoPage() {
     setNewClientPhone("");
   }
 
+  function addItem() {
+    setItems((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), igualacionLineId: "", colorName: "", liters: 1 },
+    ]);
+  }
+
+  function removeItem(id: string) {
+    if (items.length === 1) return; // Keep at least one item
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function updateItem(id: string, field: keyof OrderItem, value: any) {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    );
+  }
+
+  function selectIgualacionLine(itemId: string, lineId: string) {
+    const selectedLine = lines.find((l) => l.id === lineId);
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              igualacionLineId: lineId,
+              colorName: selectedLine?.description || "",
+            }
+          : item
+      )
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
-    const res = await fetch("/api/pedidos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId,
-        colorGroupId,
-        igualacionLineId: igualacionLineId || undefined,
-        colorName,
-        liters,
-        source,
-        notes,
-      }),
-    });
+    try {
+      // Create multiple orders (one per item)
+      const promises = items.map((item) =>
+        fetch("/api/pedidos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId,
+            colorGroupId,
+            igualacionLineId: item.igualacionLineId || undefined,
+            colorName: item.colorName,
+            liters: item.liters,
+            source,
+            notes,
+          }),
+        })
+      );
 
-    if (res.ok) {
-      const order = await res.json();
-      router.push(`/dashboard/pedidos/${order.id}`);
-    } else {
-      const err = await res.json();
-      alert(err.error || "Error al crear pedido");
+      const responses = await Promise.all(promises);
+      const allSuccess = responses.every((r) => r.ok);
+
+      if (allSuccess) {
+        router.push("/dashboard/pedidos");
+      } else {
+        const firstError = responses.find((r) => !r.ok);
+        const err = await firstError?.json();
+        alert(err?.error || "Error al crear pedidos");
+        setLoading(false);
+      }
+    } catch (error) {
+      alert("Error al crear pedidos");
       setLoading(false);
     }
   }
@@ -121,7 +174,7 @@ export default function NuevoPedidoPage() {
   ];
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Nuevo Pedido</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -191,67 +244,94 @@ export default function NuevoPedidoPage() {
           </div>
         </Card>
 
-        {/* Color & Liters */}
+        {/* Color Group */}
         <Card className="p-6 space-y-4">
-          <CardTitle>Color y Cantidad</CardTitle>
+          <CardTitle>Grupo de Color</CardTitle>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {groups.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setColorGroupId(g.id)}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors border ${
+                  colorGroupId === g.id
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 hover:border-slate-400 dark:border-slate-700"
+                }`}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+        </Card>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Grupo de Color</label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {groups.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => setColorGroupId(g.id)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors border ${
-                    colorGroupId === g.id
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 hover:border-slate-400 dark:border-slate-700"
-                  }`}
-                >
-                  {g.name}
-                </button>
-              ))}
-            </div>
+        {/* Products List */}
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <CardTitle>Productos ({items.length})</CardTitle>
+            <Button type="button" variant="outline" onClick={addItem}>
+              + Agregar Producto
+            </Button>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Línea de Igualación</label>
-            <IgualacionLineCombobox
-              lines={lines}
-              value={igualacionLineId}
-              onChange={(lineId) => {
-                setIgualacionLineId(lineId);
-                // Auto-llenar nombre del color con la descripción del producto
-                const selectedLine = lines.find(l => l.id === lineId);
-                if (selectedLine && selectedLine.description) {
-                  setColorName(selectedLine.description);
-                }
-              }}
-              placeholder="Buscar por código o descripción..."
-            />
-          </div>
+          <div className="space-y-3">
+            {items.map((item, index) => (
+              <div
+                key={item.id}
+                className="p-4 border border-slate-200 rounded-lg space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-slate-600">
+                    Producto #{index + 1}
+                  </span>
+                  {items.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      className="text-red-600 hover:text-red-800 text-sm"
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Nombre del Color</label>
-            <Input
-              placeholder="Ej: Azul Cielo, Rojo Ferrari..."
-              value={colorName}
-              onChange={(e) => setColorName(e.target.value)}
-              required
-            />
-          </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Línea de Igualación</label>
+                  <IgualacionLineCombobox
+                    lines={lines}
+                    value={item.igualacionLineId}
+                    onChange={(lineId) => selectIgualacionLine(item.id, lineId)}
+                    placeholder="Buscar por código o descripción..."
+                  />
+                </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Litros</label>
-            <Input
-              type="number"
-              step="0.5"
-              min="0.5"
-              value={liters}
-              onChange={(e) => setLiters(parseFloat(e.target.value) || 0)}
-              required
-            />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Nombre del Color</label>
+                  <Input
+                    placeholder="Ej: BIKAPA CROMACRYL ORG. APERLADO 1L"
+                    value={item.colorName}
+                    onChange={(e) =>
+                      updateItem(item.id, "colorName", e.target.value)
+                    }
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Litros</label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    value={item.liters}
+                    onChange={(e) =>
+                      updateItem(item.id, "liters", parseFloat(e.target.value) || 0)
+                    }
+                    required
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </Card>
 
@@ -294,9 +374,16 @@ export default function NuevoPedidoPage() {
         <Button
           type="submit"
           className="w-full h-12 text-lg"
-          disabled={loading || !clientId || !colorGroupId || !colorName || !liters}
+          disabled={
+            loading ||
+            !clientId ||
+            !colorGroupId ||
+            items.some((item) => !item.colorName || !item.liters)
+          }
         >
-          {loading ? "Creando..." : "Crear Pedido"}
+          {loading
+            ? "Creando..."
+            : `Crear ${items.length} Pedido${items.length > 1 ? "s" : ""}`}
         </Button>
       </form>
     </div>
