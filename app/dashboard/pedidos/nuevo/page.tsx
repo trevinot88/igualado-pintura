@@ -215,11 +215,18 @@ export default function NuevoPedidoPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Línea de Igualación (opcional)</label>
+            <label className="text-sm font-medium">Línea de Igualación</label>
             <IgualacionLineCombobox
               lines={lines}
               value={igualacionLineId}
-              onChange={setIgualacionLineId}
+              onChange={(lineId) => {
+                setIgualacionLineId(lineId);
+                // Auto-llenar nombre del color con la descripción de la línea
+                const selectedLine = lines.find(l => l.id === lineId);
+                if (selectedLine) {
+                  setColorName(selectedLine.name);
+                }
+              }}
               placeholder="Buscar por código o descripción..."
             />
           </div>

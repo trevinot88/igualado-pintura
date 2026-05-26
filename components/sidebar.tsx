@@ -17,6 +17,7 @@ import {
   LogOut,
   ChevronLeft,
   Menu,
+  Code2,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -33,6 +34,7 @@ const navItems: NavItem[] = [
   { label: "Nuevo Pedido", href: "/dashboard/pedidos/nuevo", icon: PlusCircle, roles: ["ADMIN", "VENDEDOR"] },
   { label: "Pedidos", href: "/dashboard/pedidos", icon: ClipboardList, roles: ["ADMIN", "VENDEDOR", "IGUALADOR"] },
   { label: "Clientes", href: "/dashboard/clientes", icon: Users, roles: ["ADMIN", "VENDEDOR"] },
+  { label: "Códigos de IG", href: "/dashboard/codigos-ig", icon: Code2, roles: ["ADMIN"] },
   { label: "Precios", href: "/dashboard/precios", icon: Palette, roles: ["ADMIN"] },
   { label: "Reportes", href: "/dashboard/reportes", icon: BarChart3, roles: ["ADMIN"] },
   { label: "Usuarios", href: "/dashboard/usuarios", icon: UserCircle, roles: ["ADMIN"] },
