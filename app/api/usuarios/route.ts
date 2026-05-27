@@ -17,7 +17,7 @@ const createUserSchema = z.object({
   locationId: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
   requireRole(session?.user, ["ADMIN"]);
 
