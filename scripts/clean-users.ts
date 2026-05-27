@@ -32,8 +32,24 @@ async function main() {
     console.log(`   - ${u.name} (${u.email}) [${u.role}] active=${u.active}`);
   }
 
-  // Eliminar registros relacionados primero (FK constraints)
+  // Eliminar/desvincular registros relacionados (FK constraints)
   const userIds = toDelete.map((u) => u.id);
+
+  // Obtener el admin para reasignar pedidos
+  const admin = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+  if (!admin) throw new Error("No se encontró usuario ADMIN");
+
+  // sellerId es NOT NULL → reasignar pedidos al admin
+  await prisma.order.updateMany({
+    where: { sellerId: { in: userIds } },
+    data: { sellerId: admin.id },
+  });
+
+  // igualadorId es nullable → desvincular
+  await prisma.$executeRawUnsafe(
+    `UPDATE "Order" SET "igualadorId" = NULL WHERE "igualadorId" = ANY($1::text[])`,
+    userIds
+  );
 
   await prisma.auditLog.deleteMany({ where: { userId: { in: userIds } } });
 
