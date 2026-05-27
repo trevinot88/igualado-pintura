@@ -23,8 +23,11 @@ export async function GET() {
 
   if (DEMO_MODE) return NextResponse.json(DEMO_USUARIOS);
 
+  const { searchParams } = new URL(req.url);
+  const showAll = searchParams.get("all") === "true";
+
   const users = await prisma.user.findMany({
-    where: { active: true },
+    where: showAll ? {} : { active: true },
     select: {
       id: true,
       name: true,

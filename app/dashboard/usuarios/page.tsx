@@ -37,25 +37,36 @@ export default function UsuariosPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(true);
 
   // Form
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("VENDEDOR");
+  const [role, setRole] = useState("FACTURACION");
 
   function fetchUsers() {
-    fetch("/api/usuarios")
+    fetch(`/api/usuarios?all=${showAll}`)
       .then((r) => r.json())
       .then((data) => {
-        setUsers(data);
+        setUsers(Array.isArray(data) ? data : []);
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
+  }
+
+  async function toggleUserActive(user: User) {
+    await fetch(`/api/usuarios/${user.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !user.active }),
+    });
+    fetchUsers();
   }
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [showAll]);
 
   function openCreate() {
     setEditingId(null);
@@ -109,7 +120,20 @@ export default function UsuariosPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Usuarios</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">Usuarios</h1>
+          <button
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            className={`text-sm px-3 py-1 rounded-full border transition-colors ${
+              showAll
+                ? "bg-slate-900 text-white border-slate-900"
+                : "border-slate-300 text-slate-600 hover:border-slate-500"
+            }`}
+          >
+            {showAll ? "Todos" : "Solo Activos"}
+          </button>
+        </div>
         <Dialog open={showForm} onOpenChange={setShowForm}>
           <DialogTrigger asChild>
             <Button onClick={openCreate}>
@@ -177,8 +201,20 @@ export default function UsuariosPage() {
             </thead>
             <tbody>
               {users.map((user) => (
-                <tr key={user.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900">
-                  <td className="px-4 py-3 font-medium">{user.name}</td>
+                <tr
+                  key={user.id}
+                  className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 ${
+                    !user.active ? "opacity-50" : ""
+                  }`}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{user.name}</span>
+                      {!user.active && (
+                        <span className="text-xs bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded">Inactivo</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-slate-500">{user.email}</td>
                   <td className="px-4 py-3">
                     <Badge className={ROLE_COLORS[user.role] || ""}>{user.role}</Badge>
@@ -190,8 +226,13 @@ export default function UsuariosPage() {
                       <Button variant="ghost" size="icon" onClick={() => openEdit(user)}>
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(user.id)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleUserActive(user)}
+                        className={user.active ? "text-red-500 hover:text-red-700" : "text-green-600 hover:text-green-800"}
+                      >
+                        {user.active ? "Desactivar" : "Activar"}
                       </Button>
                     </div>
                   </td>
