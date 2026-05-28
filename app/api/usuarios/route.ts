@@ -7,6 +7,9 @@ import { z } from "zod";
 import { createHash } from "crypto";
 import { DEMO_USUARIOS } from "@/lib/demo-data";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 const createUserSchema = z.object({

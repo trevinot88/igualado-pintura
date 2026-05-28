@@ -6,6 +6,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createHash } from "crypto";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const updateUserSchema = z.object({
   name: z.string().min(1).optional(),
   role: z.enum(["ADMIN", "FACTURACION", "IGUALADOR", "VENDEDOR_READONLY"]).optional(),
@@ -53,9 +56,34 @@ export async function DELETE(
   const user = requireRole(session?.user, ["ADMIN"]);
 
   const { id } = await params;
-  await prisma.user.update({ where: { id }, data: { active: false } });
 
-  await logAudit(user.id, "DELETE", "User", id, { deactivated: true });
+  if (id === user.id) {
+    return NextResponse.json({ error: "No puedes eliminar tu propio usuario" }, { status: 400 });
+  }
 
-  return NextResponse.json({ ok: true });
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, email: true, _count: { select: { sellerOrders: true, igualadorOrders: true } } },
+  });
+  if (!target) {
+    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  }
+
+  const hasOrders = target._count.sellerOrders > 0 || target._count.igualadorOrders > 0;
+
+  if (hasOrders) {
+    await prisma.user.update({ where: { id }, data: { active: false } });
+    await logAudit(user.id, "DELETE", "User", id, { deactivated: true, reason: "user has orders" });
+    return NextResponse.json({
+      ok: true,
+      mode: "soft",
+      message: "Usuario tiene órdenes asociadas; se desactivó en lugar de borrar.",
+    });
+  }
+
+  await prisma.auditLog.updateMany({ where: { userId: id }, data: { userId: null } });
+  await prisma.user.delete({ where: { id } });
+  await logAudit(user.id, "DELETE", "User", id, { hardDeleted: true, email: target.email });
+
+  return NextResponse.json({ ok: true, mode: "hard" });
 }

@@ -45,23 +45,41 @@ export default function UsuariosPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("FACTURACION");
 
-  function fetchUsers() {
-    fetch(`/api/usuarios?all=${showAll}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setUsers(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+  async function fetchUsers() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/usuarios?all=${showAll}&t=${Date.now()}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || `Error cargando usuarios (${res.status})`);
+        setUsers([]);
+        return;
+      }
+      const data = await res.json();
+      setUsers(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      alert("Error de red al cargar usuarios");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function toggleUserActive(user: User) {
-    await fetch(`/api/usuarios/${user.id}`, {
+    const res = await fetch(`/api/usuarios/${user.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
+      cache: "no-store",
       body: JSON.stringify({ active: !user.active }),
     });
-    fetchUsers();
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || `Error al ${user.active ? "desactivar" : "activar"} usuario`);
+      return;
+    }
+    await fetchUsers();
   }
 
   useEffect(() => {
@@ -90,31 +108,47 @@ export default function UsuariosPage() {
     if (editingId) {
       const body: Record<string, unknown> = { name, role };
       if (password) body.password = password;
-      await fetch(`/api/usuarios/${editingId}`, {
+      const res = await fetch(`/api/usuarios/${editingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Error al actualizar usuario");
+        return;
+      }
     } else {
       const res = await fetch("/api/usuarios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ name, email, password, role }),
       });
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         alert(err.error || "Error al crear usuario");
         return;
       }
     }
     setShowForm(false);
-    fetchUsers();
+    await fetchUsers();
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Desactivar este usuario?")) return;
-    await fetch(`/api/usuarios/${id}`, { method: "DELETE" });
-    fetchUsers();
+  async function handleHardDelete(user: User) {
+    if (!confirm(`¿Eliminar definitivamente a "${user.name}" (${user.email})?\n\nEsta acción es irreversible. Si el usuario tiene órdenes asociadas se desactivará en su lugar.`)) return;
+    const res = await fetch(`/api/usuarios/${user.id}`, {
+      method: "DELETE",
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.error || "Error al eliminar usuario");
+      return;
+    }
+    if (data.mode === "soft" && data.message) alert(data.message);
+    await fetchUsers();
   }
 
   return (
@@ -223,16 +257,25 @@ export default function UsuariosPage() {
                   <td className="px-4 py-3 text-xs text-slate-500">{formatDate(user.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(user)}>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(user)} title="Editar">
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => toggleUserActive(user)}
-                        className={user.active ? "text-red-500 hover:text-red-700" : "text-green-600 hover:text-green-800"}
+                        className={user.active ? "text-amber-600 hover:text-amber-700" : "text-green-600 hover:text-green-800"}
                       >
                         {user.active ? "Desactivar" : "Activar"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleHardDelete(user)}
+                        className="text-red-500 hover:text-red-700"
+                        title="Eliminar definitivamente"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </td>
