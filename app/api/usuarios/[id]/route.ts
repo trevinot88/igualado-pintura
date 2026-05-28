@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { requireRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { createHash } from "crypto";
 
@@ -37,15 +38,22 @@ export async function PUT(
     updateData.hashedPassword = createHash("sha256").update(data.password).digest("hex");
   }
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data: updateData,
-    select: { id: true, name: true, email: true, role: true, locationId: true },
-  });
+  try {
+    const updated = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: { id: true, name: true, email: true, role: true, locationId: true },
+    });
 
-  await logAudit(user.id, "UPDATE", "User", id, data as Record<string, unknown>);
+    await logAudit(user.id, "UPDATE", "User", id, data as Record<string, unknown>);
 
-  return NextResponse.json(updated);
+    return NextResponse.json(updated);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+    }
+    throw error;
+  }
 }
 
 export async function DELETE(

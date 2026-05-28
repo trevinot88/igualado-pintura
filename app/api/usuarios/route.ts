@@ -5,12 +5,8 @@ import { requireRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createHash } from "crypto";
-import { DEMO_USUARIOS } from "@/lib/demo-data";
-
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 const createUserSchema = z.object({
   name: z.string().min(1),
@@ -23,8 +19,6 @@ const createUserSchema = z.object({
 export async function GET(req: Request) {
   const session = await auth();
   requireRole(session?.user, ["ADMIN"]);
-
-  if (DEMO_MODE) return NextResponse.json(DEMO_USUARIOS);
 
   const { searchParams } = new URL(req.url);
   const showAll = searchParams.get("all") === "true";
@@ -53,9 +47,10 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const data = createUserSchema.parse(body);
+  const normalizedEmail = data.email.trim().toLowerCase();
 
-  const existing = await prisma.user.findFirst({ 
-    where: { email: data.email } 
+  const existing = await prisma.user.findFirst({
+    where: { email: normalizedEmail }
   });
   
   if (existing) {
@@ -84,7 +79,7 @@ export async function POST(req: Request) {
   const newUser = await prisma.user.create({
     data: {
       name: data.name,
-      email: data.email,
+      email: normalizedEmail,
       hashedPassword,
       role: data.role,
       locationId: data.locationId || null,

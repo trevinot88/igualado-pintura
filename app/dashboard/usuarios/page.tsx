@@ -150,7 +150,6 @@ export default function UsuariosPage() {
     if (data.mode === "soft" && data.message) alert(data.message);
     await fetchUsers();
   }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
