@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { requireRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { createHash } from "crypto";
 export const dynamic = "force-dynamic";
@@ -42,63 +43,88 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  const user = requireRole(session?.user, ["ADMIN"]);
+  try {
+    const session = await auth();
+    const user = requireRole(session?.user, ["ADMIN"]);
 
-  const body = await req.json();
-  const data = createUserSchema.parse(body);
-  const normalizedEmail = data.email.trim().toLowerCase();
+    const body = await req.json();
+    const data = createUserSchema.parse(body);
+    const normalizedEmail = data.email.trim().toLowerCase();
 
-  const existing = await prisma.user.findFirst({
-    where: { email: normalizedEmail }
-  });
-  
-  if (existing) {
-    if (existing.active) {
-      return NextResponse.json({ error: `El email ya está en uso por el usuario: ${existing.name}` }, { status: 400 });
+    const existing = await prisma.user.findFirst({
+      where: { email: normalizedEmail },
+    });
+
+    if (existing) {
+      if (existing.active) {
+        return NextResponse.json({ error: `El email ya está en uso por el usuario: ${existing.name}` }, { status: 400 });
+      }
+
+      const hashedPassword = createHash("sha256").update(data.password).digest("hex");
+      const reactivated = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          name: data.name,
+          hashedPassword,
+          role: data.role,
+          active: true,
+          locationId: data.locationId || null,
+        },
+        select: { id: true, name: true, email: true, role: true, locationId: true, createdAt: true },
+      });
+
+      try {
+        await logAudit(user.id, "UPDATE", "User", reactivated.id, {
+          action: "reactivated",
+          name: data.name,
+          role: data.role,
+        });
+      } catch (auditError) {
+        console.error("Audit log failed on user reactivation:", auditError);
+      }
+
+      return NextResponse.json(reactivated, { status: 201 });
     }
-    // If user exists but inactive, reactivate with new data
+
     const hashedPassword = createHash("sha256").update(data.password).digest("hex");
-    const reactivated = await prisma.user.update({
-      where: { id: existing.id },
+
+    const newUser = await prisma.user.create({
       data: {
         name: data.name,
+        email: normalizedEmail,
         hashedPassword,
         role: data.role,
-        active: true,
         locationId: data.locationId || null,
       },
-      select: { id: true, name: true, email: true, role: true, locationId: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        locationId: true,
+        createdAt: true,
+      },
     });
-    await logAudit(user.id, "UPDATE", "User", reactivated.id, { action: "reactivated", name: data.name, role: data.role });
-    return NextResponse.json(reactivated, { status: 201 });
+
+    try {
+      await logAudit(user.id, "CREATE", "User", newUser.id, {
+        name: data.name,
+        email: normalizedEmail,
+        role: data.role,
+      });
+    } catch (auditError) {
+      console.error("Audit log failed on user create:", auditError);
+    }
+
+    return NextResponse.json(newUser, { status: 201 });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Datos de usuario inválidos", details: error.flatten() }, { status: 400 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "El email ya está en uso" }, { status: 400 });
+    }
+    console.error("POST /api/usuarios error:", error);
+    return NextResponse.json({ error: "Error interno al crear usuario" }, { status: 500 });
   }
-
-  const hashedPassword = createHash("sha256").update(data.password).digest("hex");
-
-  const newUser = await prisma.user.create({
-    data: {
-      name: data.name,
-      email: normalizedEmail,
-      hashedPassword,
-      role: data.role,
-      locationId: data.locationId || null,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      locationId: true,
-      createdAt: true,
-    },
-  });
-
-  await logAudit(user.id, "CREATE", "User", newUser.id, {
-    name: data.name,
-    email: data.email,
-    role: data.role,
-  });
-
-  return NextResponse.json(newUser, { status: 201 });
 }
