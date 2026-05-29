@@ -4,7 +4,8 @@ import { requireRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { DEMO_REPORTES } from "@/lib/demo-data";
 
-const DEMO_MODE = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
+const DEMO_MODE =
+  process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -27,77 +28,92 @@ export async function GET(req: Request) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // KPIs
+  const rangeWhere = from ? { createdAt: dateFilter } : {};
+
   const [
-    ordersToday,
-    ordersTotal,
-    litersToday,
     queueCount,
     avgProductionTime,
-    volumeByGroup,
+    todayCompleted,
+    todayWithHelp,
     ordersBySource,
-    productionDaily,
-    igualadorPerformance,
-    completedOrders,
-    collaborationOrders,
+    igualadorSolo,
+    igualadorConAyuda,
+    sellerVolume,
     crossAssistance,
   ] = await Promise.all([
-    prisma.order.count({ where: { createdAt: { gte: today }, status: { not: "CANCELADO" } } }),
-    prisma.order.count({ where: { status: { not: "CANCELADO" }, ...(from ? { createdAt: dateFilter } : {}) } }),
-    prisma.order.aggregate({
-      _sum: { liters: true },
-      where: { createdAt: { gte: today }, status: { not: "CANCELADO" } },
+    // KPI 1 – Pedidos en cola (siempre en tiempo real)
+    prisma.order.count({
+      where: { status: { in: ["PENDIENTE", "EN_PROCESO"] } },
     }),
-    prisma.order.count({ where: { status: { in: ["PENDIENTE", "EN_PROCESO"] } } }),
+
+    // KPI 2 – Tiempo promedio de igualación (rango seleccionado)
     prisma.order.aggregate({
       _avg: { productionTimeMinutes: true },
-      where: { productionTimeMinutes: { not: null } },
+      where: {
+        productionTimeMinutes: { not: null },
+        status: { not: "CANCELADO" },
+        ...rangeWhere,
+      },
     }),
-    // Volume by group
-    prisma.order.groupBy({
-      by: ["colorGroupId"],
-      _sum: { liters: true },
-      _count: true,
-      where: { status: { not: "CANCELADO" }, ...(from ? { createdAt: dateFilter } : {}) },
+
+    // KPI 3a – Pedidos completados HOY (siempre hoy, ignora el filtro de rango)
+    prisma.order.count({
+      where: {
+        completedAt: { gte: today },
+        status: { not: "CANCELADO" },
+      },
     }),
-    // Orders by source
+
+    // KPI 3b – De los completados hoy, cuántos tuvieron ayudante
+    prisma.order.count({
+      where: {
+        completedAt: { gte: today },
+        ayudanteId: { not: null },
+        status: { not: "CANCELADO" },
+      },
+    }),
+
+    // Chart: Pedidos por Canal (donut)
     prisma.order.groupBy({
       by: ["source"],
       _count: true,
-      where: { status: { not: "CANCELADO" }, ...(from ? { createdAt: dateFilter } : {}) },
+      where: { status: { not: "CANCELADO" }, ...rangeWhere },
     }),
-    // Production by day (last 7 days)
-    prisma.$queryRaw`
-      SELECT DATE("completedAt") as date, COUNT(*)::int as count, 
-             AVG("productionTimeMinutes")::int as avg_time
-      FROM "Order" 
-      WHERE "completedAt" IS NOT NULL 
-        AND "completedAt" >= NOW() - INTERVAL '7 days'
-      GROUP BY DATE("completedAt")
-      ORDER BY date
-    `,
-    // Igualador performance
+
+    // Chart stacked – igualador SOLO (sin ayudante)
     prisma.order.groupBy({
       by: ["igualadorId"],
       _count: true,
-      _avg: { productionTimeMinutes: true },
-      where: { igualadorId: { not: null }, completedAt: { not: null } },
-    }),
-    prisma.order.count({
       where: {
+        igualadorId: { not: null },
+        ayudanteId: null,
         completedAt: { not: null },
         status: { not: "CANCELADO" },
-        ...(from ? { createdAt: dateFilter } : {}),
+        ...rangeWhere,
       },
     }),
-    prisma.order.count({
+
+    // Chart stacked – igualador CON ayuda
+    prisma.order.groupBy({
+      by: ["igualadorId"],
+      _count: true,
       where: {
-        completedAt: { not: null },
+        igualadorId: { not: null },
         ayudanteId: { not: null },
+        completedAt: { not: null },
         status: { not: "CANCELADO" },
-        ...(from ? { createdAt: dateFilter } : {}),
+        ...rangeWhere,
       },
     }),
+
+    // Chart: Volumen por Vendedor
+    prisma.order.groupBy({
+      by: ["sellerId"],
+      _count: true,
+      where: { status: { not: "CANCELADO" }, ...rangeWhere },
+    }),
+
+    // Tabla detalle: asistencia cruzada
     prisma.order.groupBy({
       by: ["igualadorId", "ayudanteId"],
       _count: true,
@@ -106,74 +122,87 @@ export async function GET(req: Request) {
         ayudanteId: { not: null },
         completedAt: { not: null },
         status: { not: "CANCELADO" },
-        ...(from ? { createdAt: dateFilter } : {}),
+        ...rangeWhere,
       },
     }),
   ]);
 
-  // Enrich group names
-  const groups = await prisma.colorGroup.findMany({
-    select: { id: true, name: true },
-  });
-  const groupMap = Object.fromEntries(groups.map((g) => [g.id, g.name]));
-
-  // Enrich igualador names
-  const igualadorIds = igualadorPerformance
-    .filter((i) => i.igualadorId)
-    .map((i) => i.igualadorId!);
-  const collaborationHelperIds = crossAssistance
-    .filter((i) => i.ayudanteId)
-    .map((i) => i.ayudanteId!);
-  const collaborationPrincipalIds = crossAssistance
-    .filter((i) => i.igualadorId)
-    .map((i) => i.igualadorId!);
-
-  const userIds = Array.from(
-    new Set([...igualadorIds, ...collaborationPrincipalIds, ...collaborationHelperIds])
+  // Recopilar todos los user IDs que necesitamos enriquecer
+  const igualadorIds = Array.from(
+    new Set([
+      ...igualadorSolo.map((i) => i.igualadorId!),
+      ...igualadorConAyuda.map((i) => i.igualadorId!),
+      ...crossAssistance.map((i) => i.igualadorId!),
+      ...crossAssistance.filter((i) => i.ayudanteId).map((i) => i.ayudanteId!),
+    ])
   );
+  const sellerIds = sellerVolume
+    .filter((s) => s.sellerId)
+    .map((s) => s.sellerId!);
+  const allUserIds = Array.from(new Set([...igualadorIds, ...sellerIds]));
 
-  const igualadores = await prisma.user.findMany({
-    where: { id: { in: userIds } },
+  const users = await prisma.user.findMany({
+    where: { id: { in: allUserIds } },
     select: { id: true, name: true },
   });
-  const igualadorMap = Object.fromEntries(igualadores.map((u) => [u.id, u.name]));
+  const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]));
 
-  const collaborationRate =
-    completedOrders > 0
-      ? Math.round((collaborationOrders / completedOrders) * 100)
+  // Construir datos apilados por igualador
+  const soloMap: Record<string, number> = {};
+  igualadorSolo.forEach((i) => {
+    if (i.igualadorId) soloMap[i.igualadorId] = i._count;
+  });
+  const ayudaMap: Record<string, number> = {};
+  igualadorConAyuda.forEach((i) => {
+    if (i.igualadorId) ayudaMap[i.igualadorId] = i._count;
+  });
+  const allIgIds = Array.from(
+    new Set([
+      ...igualadorSolo.map((i) => i.igualadorId!),
+      ...igualadorConAyuda.map((i) => i.igualadorId!),
+    ])
+  ).filter(Boolean);
+  const igualadorStacked = allIgIds.map((id) => ({
+    name: userMap[id] || "Desconocido",
+    solo: soloMap[id] || 0,
+    conAyuda: ayudaMap[id] || 0,
+  }));
+
+  const collaborationRateToday =
+    todayCompleted > 0
+      ? Math.round((todayWithHelp / todayCompleted) * 100)
       : 0;
 
   return NextResponse.json({
     kpis: {
-      ordersToday,
-      ordersTotal,
-      litersToday: litersToday._sum.liters || 0,
       queueCount,
-      avgProductionTime: Math.round(avgProductionTime._avg.productionTimeMinutes || 0),
-      collaborationOrders,
-      collaborationRate,
+      avgProductionTime: Math.round(
+        avgProductionTime._avg.productionTimeMinutes || 0
+      ),
+      collaborationRateToday,
+      todayCompleted,
+      todayWithHelp,
     },
     charts: {
-      volumeByGroup: volumeByGroup.map((g) => ({
-        group: groupMap[g.colorGroupId] || g.colorGroupId,
-        liters: g._sum.liters || 0,
-        count: g._count,
-      })),
       ordersBySource: ordersBySource.map((s) => ({
         source: s.source,
         count: s._count,
       })),
-      productionDaily,
-      igualadorPerformance: igualadorPerformance.map((i) => ({
-        name: igualadorMap[i.igualadorId!] || "Desconocido",
-        count: i._count,
-        avgTime: Math.round(i._avg.productionTimeMinutes || 0),
-      })),
-      crossAssistance: crossAssistance.map((i) => ({
-        principal: igualadorMap[i.igualadorId!] || "Desconocido",
-        helper: igualadorMap[i.ayudanteId!] || "Desconocido",
-        count: i._count,
-      })),
+      igualadorStacked,
+      sellerVolume: sellerVolume
+        .filter((s) => s.sellerId)
+        .map((s) => ({
+          name: userMap[s.sellerId!] || "Desconocido",
+          count: s._count,
+        }))
+        .sort((a, b) => b.count - a.count),
+      crossAssistance: crossAssistance
+        .map((i) => ({
+          principal: userMap[i.igualadorId!] || "Desconocido",
+          helper: userMap[i.ayudanteId!] || "Desconocido",
+          count: i._count,
+        }))
+        .sort((a, b) => b.count - a.count),
     },
   });
 }

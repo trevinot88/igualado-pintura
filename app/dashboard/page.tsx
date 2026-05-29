@@ -3,13 +3,8 @@
 import { useEffect, useState } from "react";
 import { Card, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  ClipboardList,
-  Droplets,
-  Clock,
-  Factory,
-  Handshake,
-} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Clock, Factory, Handshake } from "lucide-react";
 import { ORDER_SOURCE_LABELS } from "@/lib/utils";
 import {
   BarChart,
@@ -22,25 +17,23 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from "recharts";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+const SOURCE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
 
 interface DashboardData {
   kpis: {
-    ordersToday: number;
-    ordersTotal: number;
-    litersToday: number;
     queueCount: number;
     avgProductionTime: number;
-    collaborationOrders: number;
-    collaborationRate: number;
+    collaborationRateToday: number;
+    todayCompleted: number;
+    todayWithHelp: number;
   };
   charts: {
-    volumeByGroup: { group: string; liters: number; count: number }[];
     ordersBySource: { source: string; count: number }[];
-    productionDaily: { date: string; count: number; avg_time: number }[];
-    igualadorPerformance: { name: string; count: number; avgTime: number }[];
+    igualadorStacked: { name: string; solo: number; conAyuda: number }[];
+    sellerVolume: { name: string; count: number }[];
     crossAssistance: { principal: string; helper: string; count: number }[];
   };
 }
@@ -54,69 +47,188 @@ export default function DashboardPage() {
     const params = new URLSearchParams();
     if (from) params.set("from", from);
     if (to) params.set("to", to);
-
     fetch(`/api/reportes?${params}`)
       .then((r) => r.json())
       .then(setData);
   }, [from, to]);
 
-  if (!data) return <div className="p-8 text-center">Cargando dashboard...</div>;
+  if (!data)
+    return (
+      <div className="p-8 text-center text-slate-500">
+        Cargando dashboard...
+      </div>
+    );
 
   const { kpis, charts } = data;
-
-  const kpiCards = [
-    { label: "Pedidos Hoy", value: kpis.ordersToday, icon: ClipboardList, color: "text-blue-600" },
-    { label: "Pedidos Totales", value: kpis.ordersTotal, icon: ClipboardList, color: "text-indigo-600" },
-    { label: "Litros Hoy", value: `${kpis.litersToday}L`, icon: Droplets, color: "text-cyan-600" },
-    { label: "En Cola", value: kpis.queueCount, icon: Factory, color: "text-orange-600" },
-    { label: "Tiempo Prom.", value: `${kpis.avgProductionTime}min`, icon: Clock, color: "text-purple-600" },
-    { label: "Con Colaboración", value: `${kpis.collaborationOrders} (${kpis.collaborationRate}%)`, icon: Handshake, color: "text-emerald-600" },
-  ];
+  const queueAlert = kpis.queueCount >= 5;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* ── Header + Filtros ── */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <div className="flex gap-2 items-center">
           <label className="text-sm text-slate-500">Desde:</label>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+          <Input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="w-40"
+          />
           <label className="text-sm text-slate-500">Hasta:</label>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+          <Input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="w-40"
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {kpiCards.map((kpi) => (
-          <Card key={kpi.label} className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
-              <span className="text-xs text-slate-500">{kpi.label}</span>
+      {/* ── 1. KPI Cards ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Pedidos en Cola */}
+        <Card
+          className={cn(
+            "p-5 border-2",
+            queueAlert
+              ? "border-orange-400 bg-orange-50 dark:bg-orange-950/20"
+              : "border-slate-200"
+          )}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div
+              className={cn(
+                "p-2 rounded-lg",
+                queueAlert
+                  ? "bg-orange-100 dark:bg-orange-900/30"
+                  : "bg-slate-100 dark:bg-slate-800"
+              )}
+            >
+              <Factory
+                className={cn(
+                  "h-6 w-6",
+                  queueAlert ? "text-orange-600" : "text-slate-500"
+                )}
+              />
             </div>
-            <p className="text-2xl font-bold">{kpi.value}</p>
-          </Card>
-        ))}
+            <span className="text-sm font-medium text-slate-500">
+              Pedidos en Cola
+            </span>
+          </div>
+          <p
+            className={cn(
+              "text-5xl font-bold",
+              queueAlert ? "text-orange-600" : "text-slate-900 dark:text-white"
+            )}
+          >
+            {kpis.queueCount}
+          </p>
+          <p className="text-xs mt-2 text-slate-400">
+            {queueAlert ? (
+              <span className="text-orange-600 font-medium">
+                ⚠ Taller saturado — más de 5 pendientes
+              </span>
+            ) : (
+              "Pendientes + En proceso"
+            )}
+          </p>
+        </Card>
+
+        {/* Tiempo Promedio de Igualación */}
+        <Card className="p-5 border-2 border-slate-200">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+              <Clock className="h-6 w-6 text-purple-600" />
+            </div>
+            <span className="text-sm font-medium text-slate-500">
+              Tiempo Prom. Igualación
+            </span>
+          </div>
+          <p className="text-5xl font-bold text-slate-900 dark:text-white">
+            {kpis.avgProductionTime}
+            <span className="text-2xl font-normal text-slate-400 ml-1">
+              min
+            </span>
+          </p>
+          <p className="text-xs mt-2 text-slate-400">
+            Desde creación hasta completado
+          </p>
+        </Card>
+
+        {/* Tasa de Colaboración del Día */}
+        <Card className="p-5 border-2 border-slate-200">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30">
+              <Handshake className="h-6 w-6 text-emerald-600" />
+            </div>
+            <span className="text-sm font-medium text-slate-500">
+              Colaboración Hoy
+            </span>
+          </div>
+          <p className="text-5xl font-bold text-slate-900 dark:text-white">
+            {kpis.collaborationRateToday}
+            <span className="text-2xl font-normal text-slate-400 ml-1">%</span>
+          </p>
+          <p className="text-xs mt-2 text-slate-400">
+            {kpis.todayWithHelp} de {kpis.todayCompleted} completados hoy
+            requirieron apoyo
+          </p>
+        </Card>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardTitle className="px-6 pt-6">Volumen por Grupo de Color</CardTitle>
+      {/* ── 2 + 4. Stacked bar + Donut ── */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* 2. Índice de Asistencia Cruzada (stacked bar) */}
+        <Card className="md:col-span-2">
+          <CardTitle className="px-6 pt-6 pb-1">
+            Índice de Asistencia Cruzada
+          </CardTitle>
+          <p className="px-6 text-xs text-slate-400 mb-2">
+            Quién trabaja solo vs. quién requiere apoyo de su compañero
+          </p>
           <CardContent className="h-[320px] p-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.volumeByGroup}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="group" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#3b82f6" name="Pedidos" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="liters" fill="#10b981" name="Litros" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {charts.igualadorStacked.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={charts.igualadorStacked}
+                  margin={{ top: 8, right: 20, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 13 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Legend verticalAlign="top" height={32} />
+                  <Bar
+                    dataKey="solo"
+                    name="Solo (eficiencia)"
+                    stackId="a"
+                    fill="#22c55e"
+                  />
+                  <Bar
+                    dataKey="conAyuda"
+                    name="Requirió Ayuda"
+                    stackId="a"
+                    fill="#f59e0b"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-slate-500 pt-28">
+                Sin datos de producción en el rango seleccionado
+              </p>
+            )}
           </CardContent>
         </Card>
 
+        {/* 4. Pedidos por Canal (donut) */}
         <Card>
-          <CardTitle className="px-6 pt-6">Pedidos por Canal</CardTitle>
-          <CardContent className="h-[320px] p-4">
+          <CardTitle className="px-6 pt-6 pb-1">Pedidos por Canal</CardTitle>
+          <p className="px-6 text-xs text-slate-400 mb-2">
+            Origen del flujo de clientes
+          </p>
+          <CardContent className="h-[320px] p-2">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -125,90 +237,97 @@ export default function DashboardPage() {
                     name: ORDER_SOURCE_LABELS[s.source] || s.source,
                   }))}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
+                  cy="45%"
+                  innerRadius={52}
+                  outerRadius={88}
                   dataKey="count"
                   nameKey="name"
-                  label={({ name, value }) => `${name}: ${value}`}
+                  paddingAngle={3}
                 >
                   {charts.ordersBySource.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    <Cell
+                      key={i}
+                      fill={SOURCE_COLORS[i % SOURCE_COLORS.length]}
+                    />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={(v) => [`${v} pedidos`, ""]} />
+                <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardTitle className="px-6 pt-6">Rendimiento de Igualadores</CardTitle>
-          <CardContent className="h-[320px] p-4">
-            {charts.igualadorPerformance.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={charts.igualadorPerformance}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#10b981" name="Pedidos" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="avgTime" fill="#f59e0b" name="Tiempo Prom (min)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center text-slate-500 pt-20">Sin datos de producción</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardTitle className="px-6 pt-6">Producción Diaria (7 días)</CardTitle>
-          <CardContent className="h-[320px] p-4">
-            {(charts.productionDaily as unknown[]).length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={charts.productionDaily}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#8b5cf6" name="Completados" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center text-slate-500 pt-20">Sin datos de producción esta semana</p>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
-      <Card className="p-6">
-        <CardTitle className="mb-4">Asistencia Cruzada de Igualadores</CardTitle>
-        {charts.crossAssistance.length > 0 ? (
+      {/* ── 3. Volumen por Vendedor ── */}
+      <Card>
+        <CardTitle className="px-6 pt-6 pb-1">Volumen por Vendedor</CardTitle>
+        <p className="px-6 text-xs text-slate-400 mb-2">
+          Cantidad de pedidos generados por persona
+        </p>
+        <CardContent className="h-[260px] p-4">
+          {charts.sellerVolume.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={charts.sellerVolume}
+                layout="vertical"
+                margin={{ left: 90, right: 30, top: 4, bottom: 4 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 13 }}
+                  width={90}
+                />
+                <Tooltip formatter={(v) => [`${v} pedidos`, "Volumen"]} />
+                <Bar
+                  dataKey="count"
+                  name="Pedidos"
+                  fill="#3b82f6"
+                  radius={[0, 4, 4, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-center text-slate-500 pt-16">
+              Sin datos en el rango seleccionado
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Detalle Asistencia Cruzada (tabla) ── */}
+      {charts.crossAssistance.length > 0 && (
+        <Card className="p-6">
+          <CardTitle className="mb-1">Detalle de Asistencia Cruzada</CardTitle>
+          <p className="text-xs text-slate-400 mb-4">
+            Pedidos donde el igualador principal recibió apoyo de su compañero
+          </p>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-slate-500">
                 <th className="py-2">Igualador Principal</th>
                 <th className="py-2">Ayudante</th>
-                <th className="py-2">Pedidos con apoyo</th>
+                <th className="py-2 text-right">Pedidos con apoyo</th>
               </tr>
             </thead>
             <tbody>
-              {charts.crossAssistance
-                .sort((a, b) => b.count - a.count)
-                .map((row) => (
-                  <tr key={`${row.principal}-${row.helper}`} className="border-b border-slate-100">
-                    <td className="py-2 font-medium">{row.principal}</td>
-                    <td className="py-2">{row.helper}</td>
-                    <td className="py-2 font-semibold">{row.count}</td>
-                  </tr>
-                ))}
+              {charts.crossAssistance.map((row) => (
+                <tr
+                  key={`${row.principal}-${row.helper}`}
+                  className="border-b border-slate-100"
+                >
+                  <td className="py-2 font-medium">{row.principal}</td>
+                  <td className="py-2 text-slate-600">{row.helper}</td>
+                  <td className="py-2 text-right font-semibold">{row.count}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
-        ) : (
-          <p className="text-slate-500">Sin registros de asistencia cruzada en el rango seleccionado.</p>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }

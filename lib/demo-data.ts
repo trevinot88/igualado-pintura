@@ -13,43 +13,31 @@ const yesterday = new Date(Date.now() - 86400000).toISOString();
 
 export const DEMO_REPORTES = {
   kpis: {
-    ordersToday: 8,
-    ordersTotal: 142,
-    litersToday: 24.5,
-    queueCount: 3,
+    queueCount: 4,
     avgProductionTime: 22,
-    collaborationOrders: 9,
-    collaborationRate: 20,
+    collaborationRateToday: 33,
+    todayCompleted: 6,
+    todayWithHelp: 2,
   },
   charts: {
-    volumeByGroup: [
-      { group: "Básicos", liters: 82, count: 45 },
-      { group: "Premium", liters: 64, count: 38 },
-      { group: "Metálicos", liters: 28, count: 22 },
-      { group: "Especiales", liters: 17, count: 12 },
-    ],
     ordersBySource: [
       { source: "MOSTRADOR", count: 68 },
       { source: "VENTAS", count: 34 },
-      { source: "WHATSAPP", count: 25 },
       { source: "REDES_SOCIALES", count: 15 },
     ],
-    productionDaily: [
-      { date: "2026-05-12", count: 18, avg_time: 19 },
-      { date: "2026-05-13", count: 22, avg_time: 21 },
-      { date: "2026-05-14", count: 15, avg_time: 24 },
-      { date: "2026-05-15", count: 20, avg_time: 18 },
-      { date: "2026-05-16", count: 25, avg_time: 22 },
-      { date: "2026-05-17", count: 19, avg_time: 20 },
-      { date: "2026-05-18", count: 8, avg_time: 22 },
+    igualadorStacked: [
+      { name: "Enrique", solo: 72, conAyuda: 17 },
+      { name: "Pedro", solo: 85, conAyuda: 8 },
     ],
-    igualadorPerformance: [
-      { name: "Carlos López", count: 89, avgTime: 21 },
-      { name: "Ana Martínez", count: 53, avgTime: 24 },
+    sellerVolume: [
+      { name: "Zuzel", count: 45 },
+      { name: "Evelyn", count: 38 },
+      { name: "Reyna", count: 32 },
+      { name: "Administrador", count: 27 },
     ],
     crossAssistance: [
-      { principal: "Carlos López", helper: "Ana Martínez", count: 6 },
-      { principal: "Ana Martínez", helper: "Carlos López", count: 3 },
+      { principal: "Enrique", helper: "Pedro", count: 17 },
+      { principal: "Pedro", helper: "Enrique", count: 8 },
     ],
   },
 };
