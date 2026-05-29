@@ -32,10 +32,20 @@ export default function ProduccionPage() {
 
   const fetchQueue = useCallback(() => {
     fetch("/api/produccion")
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || "No se pudo cargar la cola de producción");
+        }
+        return r.json();
+      })
       .then((data) => {
         setQueue(data.queue || []);
         setCompletedToday(data.completedToday || []);
+        setLoading(false);
+      })
+      .catch((error) => {
+        alert(error.message || "Error cargando producción");
         setLoading(false);
       });
   }, []);
@@ -47,11 +57,16 @@ export default function ProduccionPage() {
   }, [fetchQueue]);
 
   async function handleStatusChange(orderId: string, newStatus: string) {
-    await fetch(`/api/pedidos/${orderId}/estado`, {
+    const res = await fetch(`/api/pedidos/${orderId}/estado`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "No se pudo actualizar el estado del pedido");
+      return;
+    }
     fetchQueue();
   }
 

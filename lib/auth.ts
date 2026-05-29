@@ -5,7 +5,7 @@ import { prisma } from "./prisma";
 import { createHash } from "crypto";
 import { DEMO_USER } from "./demo-data";
 
-const DEMO_MODE = process.env.DEMO_MODE === "true";
+const DEMO_MODE = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 
 function verifyPassword(plain: string, hashed: string): boolean {
   return createHash("sha256").update(plain).digest("hex") === hashed;

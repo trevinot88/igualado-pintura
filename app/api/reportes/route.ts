@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { DEMO_REPORTES } from "@/lib/demo-data";
 
-const DEMO_MODE = process.env.DEMO_MODE === "true";
+const DEMO_MODE = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 
 export async function GET(req: Request) {
   const session = await auth();

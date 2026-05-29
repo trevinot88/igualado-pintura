@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { DEMO_PEDIDOS } from "@/lib/demo-data";
 
-const DEMO_MODE = process.env.DEMO_MODE === "true";
+const DEMO_MODE = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 
 const createOrderSchema = z.object({
   clientId: z.string().min(1),
