@@ -19,6 +19,8 @@ export const DEMO_REPORTES = {
     revenueToday: 4800,
     queueCount: 3,
     avgProductionTime: 22,
+    collaborationOrders: 9,
+    collaborationRate: 20,
     unpaidOrders: 5,
   },
   charts: {
@@ -46,6 +48,14 @@ export const DEMO_REPORTES = {
     igualadorPerformance: [
       { name: "Carlos López", count: 89, avgTime: 21 },
       { name: "Ana Martínez", count: 53, avgTime: 24 },
+    ],
+    collaborationByIgualador: [
+      { name: "Carlos López", count: 6 },
+      { name: "Ana Martínez", count: 3 },
+    ],
+    helperContribution: [
+      { name: "Carlos López", count: 4 },
+      { name: "Ana Martínez", count: 5 },
     ],
   },
 };

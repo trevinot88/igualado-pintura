@@ -26,6 +26,8 @@ interface ReportData {
     ordersBySource: { source: string; count: number }[];
     productionDaily: { date: string; count: number; avg_time: number }[];
     igualadorPerformance: { name: string; count: number; avgTime: number }[];
+    collaborationByIgualador: { name: string; count: number }[];
+    helperContribution: { name: string; count: number }[];
   };
 }
 
@@ -62,7 +64,7 @@ export default function ReportesPage() {
       </div>
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card className="p-4">
           <p className="text-sm text-slate-500">Pedidos Total</p>
           <p className="text-2xl font-bold">{data.kpis.ordersTotal}</p>
@@ -78,6 +80,14 @@ export default function ReportesPage() {
         <Card className="p-4">
           <p className="text-sm text-slate-500">Tiempo Promedio</p>
           <p className="text-2xl font-bold">{data.kpis.avgProductionTime}min</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-slate-500">Con Ayudante</p>
+          <p className="text-2xl font-bold">{data.kpis.collaborationOrders || 0}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-slate-500">Tasa Colaboración</p>
+          <p className="text-2xl font-bold">{data.kpis.collaborationRate || 0}%</p>
         </Card>
       </div>
 
@@ -164,6 +174,46 @@ export default function ReportesPage() {
               </ResponsiveContainer>
             ) : (
               <p className="text-center text-slate-500 pt-20">Sin datos de producción esta semana</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Collaboration by Principal Igualador */}
+        <Card>
+          <CardTitle className="px-6 pt-6">Pedidos con Ayuda por Igualador</CardTitle>
+          <CardContent className="h-[350px] p-4">
+            {data.charts.collaborationByIgualador?.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.charts.collaborationByIgualador}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#0ea5e9" name="Pedidos con ayuda" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-slate-500 pt-20">Sin registros de colaboración</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Collaboration as Helper */}
+        <Card>
+          <CardTitle className="px-6 pt-6">Participación como Ayudante</CardTitle>
+          <CardContent className="h-[350px] p-4">
+            {data.charts.helperContribution?.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.charts.helperContribution}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#14b8a6" name="Veces que apoyó" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-slate-500 pt-20">Sin registros de apoyo</p>
             )}
           </CardContent>
         </Card>
