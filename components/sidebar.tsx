@@ -10,8 +10,6 @@ import {
   PlusCircle,
   Factory,
   Users,
-  Palette,
-  BarChart3,
   ScrollText,
   UserCircle,
   LogOut,
@@ -35,8 +33,6 @@ const navItems: NavItem[] = [
   { label: "Pedidos", href: "/dashboard/pedidos", icon: ClipboardList, roles: ["ADMIN", "FACTURACION", "VENDEDOR_READONLY", "IGUALADOR"] },
   { label: "Clientes", href: "/dashboard/clientes", icon: Users, roles: ["ADMIN", "FACTURACION"] },
   { label: "Códigos de IG", href: "/dashboard/codigos-ig", icon: Code2, roles: ["ADMIN"] },
-  { label: "Precios", href: "/dashboard/precios", icon: Palette, roles: ["ADMIN"] },
-  { label: "Reportes", href: "/dashboard/reportes", icon: BarChart3, roles: ["ADMIN"] },
   { label: "Usuarios", href: "/dashboard/usuarios", icon: UserCircle, roles: ["ADMIN"] },
   { label: "Auditoría", href: "/dashboard/audit", icon: ScrollText, roles: ["ADMIN"] },
 ];

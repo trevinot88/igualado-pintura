@@ -34,14 +34,13 @@ export async function GET(req: Request) {
     litersToday,
     queueCount,
     avgProductionTime,
-    salesByGroup,
+    volumeByGroup,
     ordersBySource,
     productionDaily,
     igualadorPerformance,
     completedOrders,
     collaborationOrders,
-    collaborationByIgualador,
-    helperContribution,
+    crossAssistance,
   ] = await Promise.all([
     prisma.order.count({ where: { createdAt: { gte: today }, status: { not: "CANCELADO" } } }),
     prisma.order.count({ where: { status: { not: "CANCELADO" }, ...(from ? { createdAt: dateFilter } : {}) } }),
@@ -54,7 +53,7 @@ export async function GET(req: Request) {
       _avg: { productionTimeMinutes: true },
       where: { productionTimeMinutes: { not: null } },
     }),
-    // Sales by group
+    // Volume by group
     prisma.order.groupBy({
       by: ["colorGroupId"],
       _sum: { liters: true },
@@ -100,20 +99,10 @@ export async function GET(req: Request) {
       },
     }),
     prisma.order.groupBy({
-      by: ["igualadorId"],
+      by: ["igualadorId", "ayudanteId"],
       _count: true,
       where: {
         igualadorId: { not: null },
-        ayudanteId: { not: null },
-        completedAt: { not: null },
-        status: { not: "CANCELADO" },
-        ...(from ? { createdAt: dateFilter } : {}),
-      },
-    }),
-    prisma.order.groupBy({
-      by: ["ayudanteId"],
-      _count: true,
-      where: {
         ayudanteId: { not: null },
         completedAt: { not: null },
         status: { not: "CANCELADO" },
@@ -132,12 +121,12 @@ export async function GET(req: Request) {
   const igualadorIds = igualadorPerformance
     .filter((i) => i.igualadorId)
     .map((i) => i.igualadorId!);
-  const collaborationPrincipalIds = collaborationByIgualador
-    .filter((i) => i.igualadorId)
-    .map((i) => i.igualadorId!);
-  const collaborationHelperIds = helperContribution
+  const collaborationHelperIds = crossAssistance
     .filter((i) => i.ayudanteId)
     .map((i) => i.ayudanteId!);
+  const collaborationPrincipalIds = crossAssistance
+    .filter((i) => i.igualadorId)
+    .map((i) => i.igualadorId!);
 
   const userIds = Array.from(
     new Set([...igualadorIds, ...collaborationPrincipalIds, ...collaborationHelperIds])
@@ -159,16 +148,14 @@ export async function GET(req: Request) {
       ordersToday,
       ordersTotal,
       litersToday: litersToday._sum.liters || 0,
-      revenueToday: 0,
       queueCount,
       avgProductionTime: Math.round(avgProductionTime._avg.productionTimeMinutes || 0),
       collaborationOrders,
       collaborationRate,
     },
     charts: {
-      salesByGroup: salesByGroup.map((g) => ({
+      volumeByGroup: volumeByGroup.map((g) => ({
         group: groupMap[g.colorGroupId] || g.colorGroupId,
-        revenue: 0,
         liters: g._sum.liters || 0,
         count: g._count,
       })),
@@ -182,12 +169,9 @@ export async function GET(req: Request) {
         count: i._count,
         avgTime: Math.round(i._avg.productionTimeMinutes || 0),
       })),
-      collaborationByIgualador: collaborationByIgualador.map((i) => ({
-        name: igualadorMap[i.igualadorId!] || "Desconocido",
-        count: i._count,
-      })),
-      helperContribution: helperContribution.map((i) => ({
-        name: igualadorMap[i.ayudanteId!] || "Desconocido",
+      crossAssistance: crossAssistance.map((i) => ({
+        principal: igualadorMap[i.igualadorId!] || "Desconocido",
+        helper: igualadorMap[i.ayudanteId!] || "Desconocido",
         count: i._count,
       })),
     },

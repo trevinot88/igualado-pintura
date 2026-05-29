@@ -16,19 +16,17 @@ export const DEMO_REPORTES = {
     ordersToday: 8,
     ordersTotal: 142,
     litersToday: 24.5,
-    revenueToday: 4800,
     queueCount: 3,
     avgProductionTime: 22,
     collaborationOrders: 9,
     collaborationRate: 20,
-    unpaidOrders: 5,
   },
   charts: {
-    salesByGroup: [
-      { group: "Básicos", revenue: 18500, liters: 82, count: 45 },
-      { group: "Premium", revenue: 32000, liters: 64, count: 38 },
-      { group: "Metálicos", revenue: 14000, liters: 28, count: 22 },
-      { group: "Especiales", revenue: 8500, liters: 17, count: 12 },
+    volumeByGroup: [
+      { group: "Básicos", liters: 82, count: 45 },
+      { group: "Premium", liters: 64, count: 38 },
+      { group: "Metálicos", liters: 28, count: 22 },
+      { group: "Especiales", liters: 17, count: 12 },
     ],
     ordersBySource: [
       { source: "MOSTRADOR", count: 68 },
@@ -49,13 +47,9 @@ export const DEMO_REPORTES = {
       { name: "Carlos López", count: 89, avgTime: 21 },
       { name: "Ana Martínez", count: 53, avgTime: 24 },
     ],
-    collaborationByIgualador: [
-      { name: "Carlos López", count: 6 },
-      { name: "Ana Martínez", count: 3 },
-    ],
-    helperContribution: [
-      { name: "Carlos López", count: 4 },
-      { name: "Ana Martínez", count: 5 },
+    crossAssistance: [
+      { principal: "Carlos López", helper: "Ana Martínez", count: 6 },
+      { principal: "Ana Martínez", helper: "Carlos López", count: 3 },
     ],
   },
 };
