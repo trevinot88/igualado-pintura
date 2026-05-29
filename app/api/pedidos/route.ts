@@ -15,7 +15,8 @@ const createOrderSchema = z.object({
   igualacionLineId: z.string().optional(),
   colorName: z.string().min(1),
   liters: z.number().positive(),
-  source: z.enum(["MOSTRADOR", "VENTAS", "WHATSAPP", "REDES_SOCIALES"]).optional(),
+  source: z.enum(["MOSTRADOR", "VENTAS", "REDES_SOCIALES"]).optional(),
+  sellerId: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -84,6 +85,28 @@ export async function POST(req: Request) {
   const body = await req.json();
   const data = createOrderSchema.parse(body);
 
+  let effectiveSellerId = user.id;
+  if (data.source === "VENTAS") {
+    if (!data.sellerId) {
+      return NextResponse.json({ error: "Debes seleccionar un vendedor para canal Ventas" }, { status: 400 });
+    }
+
+    const seller = await prisma.user.findFirst({
+      where: {
+        id: data.sellerId,
+        active: true,
+        role: { in: ["ADMIN", "VENDEDOR_READONLY"] },
+      },
+      select: { id: true },
+    });
+
+    if (!seller) {
+      return NextResponse.json({ error: "El vendedor seleccionado no es válido" }, { status: 400 });
+    }
+
+    effectiveSellerId = seller.id;
+  }
+
   // Generate folio and queue position atomically
   const folio = await generateFolio();
 
@@ -96,7 +119,7 @@ export async function POST(req: Request) {
     data: {
       folio,
       clientId: data.clientId,
-      sellerId: user.id,
+      sellerId: effectiveSellerId,
       colorGroupId: data.colorGroupId,
       igualacionLineId: data.igualacionLineId || null,
       colorName: data.colorName,
@@ -116,6 +139,8 @@ export async function POST(req: Request) {
   await logAudit(user.id, "CREATE", "Order", order.id, {
     folio: order.folio,
     clientId: data.clientId,
+    source: data.source || "MOSTRADOR",
+    sellerId: effectiveSellerId,
   });
 
   return NextResponse.json(order, { status: 201 });
