@@ -20,6 +20,33 @@ const createOrderSchema = z.object({
   notes: z.string().optional(),
 });
 
+async function getNextIgualadorIdRoundRobin(): Promise<string | null> {
+  const igualadores = await prisma.user.findMany({
+    where: { role: "IGUALADOR", active: true },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (igualadores.length === 0) return null;
+  if (igualadores.length === 1) return igualadores[0].id;
+
+  const igualadorIds = igualadores.map((i) => i.id);
+
+  const lastAssigned = await prisma.order.findFirst({
+    where: { igualadorId: { in: igualadorIds } },
+    select: { igualadorId: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!lastAssigned?.igualadorId) return igualadores[0].id;
+
+  const currentIndex = igualadores.findIndex((i) => i.id === lastAssigned.igualadorId);
+  if (currentIndex < 0) return igualadores[0].id;
+
+  const nextIndex = (currentIndex + 1) % igualadores.length;
+  return igualadores[nextIndex].id;
+}
+
 export async function GET(req: Request) {
   const session = await auth();
   const user = requireRole(session?.user, ["ADMIN", "FACTURACION", "IGUALADOR", "VENDEDOR_READONLY"]);
@@ -107,6 +134,17 @@ export async function POST(req: Request) {
     effectiveSellerId = seller.id;
   }
 
+  let assignedIgualadorId: string | null = null;
+  if (user.role === "FACTURACION") {
+    assignedIgualadorId = await getNextIgualadorIdRoundRobin();
+    if (!assignedIgualadorId) {
+      return NextResponse.json(
+        { error: "No hay igualadores activos para asignar el pedido" },
+        { status: 400 }
+      );
+    }
+  }
+
   // Generate folio and queue position atomically
   const folio = await generateFolio();
 
@@ -120,6 +158,7 @@ export async function POST(req: Request) {
       folio,
       clientId: data.clientId,
       sellerId: effectiveSellerId,
+      igualadorId: assignedIgualadorId,
       colorGroupId: data.colorGroupId,
       igualacionLineId: data.igualacionLineId || null,
       colorName: data.colorName,
@@ -141,6 +180,7 @@ export async function POST(req: Request) {
     clientId: data.clientId,
     source: data.source || "MOSTRADOR",
     sellerId: effectiveSellerId,
+    igualadorId: assignedIgualadorId,
   });
 
   return NextResponse.json(order, { status: 201 });

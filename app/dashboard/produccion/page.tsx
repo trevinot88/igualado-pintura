@@ -5,6 +5,12 @@ import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatDate, formatMinutes, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS } from "@/lib/utils";
 import { Play, CheckCircle, Clock, GripVertical } from "lucide-react";
 
@@ -19,8 +25,15 @@ interface QueueOrder {
   createdAt: string;
   client: { name: string };
   seller: { name: string };
+  igualadorId: string | null;
   igualador: { name: string } | null;
   colorGroup: { name: string };
+}
+
+interface IgualadorOption {
+  id: string;
+  name: string;
+  email: string;
 }
 
 export default function ProduccionPage() {
@@ -28,6 +41,11 @@ export default function ProduccionPage() {
   const role = (session?.user as { role?: string })?.role;
   const [queue, setQueue] = useState<QueueOrder[]>([]);
   const [completedToday, setCompletedToday] = useState<QueueOrder[]>([]);
+  const [igualadores, setIgualadores] = useState<IgualadorOption[]>([]);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<QueueOrder | null>(null);
+  const [ayudanteId, setAyudanteId] = useState("");
+  const [completing, setCompleting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchQueue = useCallback(() => {
@@ -52,6 +70,10 @@ export default function ProduccionPage() {
 
   useEffect(() => {
     fetchQueue();
+    fetch("/api/usuarios/igualadores")
+      .then((r) => r.json())
+      .then((data) => setIgualadores(Array.isArray(data) ? data : []));
+
     const interval = setInterval(fetchQueue, 10000); // Poll every 10s
     return () => clearInterval(interval);
   }, [fetchQueue]);
@@ -81,6 +103,39 @@ export default function ProduccionPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderedIds: reordered.map((o) => o.id) }),
     });
+    fetchQueue();
+  }
+
+  function openCompleteModal(order: QueueOrder) {
+    setSelectedOrder(order);
+    setAyudanteId("");
+    setShowCompleteModal(true);
+  }
+
+  async function handleCompleteOrder() {
+    if (!selectedOrder) return;
+    setCompleting(true);
+
+    const res = await fetch("/api/produccion/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: selectedOrder.id,
+        ayudanteId: ayudanteId || undefined,
+      }),
+    });
+
+    setCompleting(false);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "No se pudo completar el pedido");
+      return;
+    }
+
+    setShowCompleteModal(false);
+    setSelectedOrder(null);
+    setAyudanteId("");
     fetchQueue();
   }
 
@@ -182,7 +237,7 @@ export default function ProduccionPage() {
                     size="sm"
                     variant="default"
                     className="mt-2 w-full bg-green-600 hover:bg-green-700"
-                    onClick={() => handleStatusChange(order.id, "LISTO")}
+                    onClick={() => openCompleteModal(order)}
                   >
                     <CheckCircle className="h-4 w-4 mr-1" /> Finalizar
                   </Button>
@@ -220,6 +275,48 @@ export default function ProduccionPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={showCompleteModal} onOpenChange={setShowCompleteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Completar Pedido</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {selectedOrder && (
+              <p className="text-sm text-slate-600">
+                Pedido <span className="font-semibold">{selectedOrder.folio}</span> - {selectedOrder.colorName}
+              </p>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">¿Recibiste ayuda de otro igualador? (opcional)</label>
+              <select
+                className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                value={ayudanteId}
+                onChange={(e) => setAyudanteId(e.target.value)}
+              >
+                <option value="">Sin ayudante</option>
+                {igualadores
+                  .filter((i) => i.id !== selectedOrder?.igualadorId)
+                  .map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <Button
+              className="w-full bg-green-600 hover:bg-green-700"
+              onClick={handleCompleteOrder}
+              disabled={completing}
+            >
+              {completing ? "Completando..." : "Guardar y Completar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

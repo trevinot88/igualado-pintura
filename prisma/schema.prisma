@@ -74,6 +74,7 @@ model User {
 
   sellerOrders    Order[]  @relation("SellerOrders")
   igualadorOrders Order[]  @relation("IgualadorOrders")
+  ayudanteOrders  Order[]  @relation("AyudanteOrders")
   auditLogs       AuditLog[]
 }
 
@@ -128,6 +129,8 @@ model Order {
   seller                User            @relation("SellerOrders", fields: [sellerId], references: [id])
   igualadorId           String?
   igualador             User?           @relation("IgualadorOrders", fields: [igualadorId], references: [id])
+  ayudanteId            String?
+  ayudante              User?           @relation("AyudanteOrders", fields: [ayudanteId], references: [id])
   colorGroupId          String
   colorGroup            ColorGroup      @relation(fields: [colorGroupId], references: [id])
   igualacionLineId      String?
@@ -153,6 +156,7 @@ model Order {
   @@index([folio])
   @@index([clientId])
   @@index([queuePosition])
+  @@index([ayudanteId])
 }
 
 model Label {

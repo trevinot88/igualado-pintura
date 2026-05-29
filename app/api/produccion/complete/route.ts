@@ -10,6 +10,7 @@ import { z } from "zod";
 const completeSchema = z.object({
   orderId: z.string(),
   productionTimeMinutes: z.number().int().positive().optional(),
+  ayudanteId: z.string().optional(),
 });
 
 /**
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { orderId, productionTimeMinutes } = completeSchema.parse(body);
+  const { orderId, productionTimeMinutes, ayudanteId } = completeSchema.parse(body);
 
   // Get the order
   const order = await prisma.order.findUnique({
@@ -54,6 +55,42 @@ export async function POST(req: Request) {
     );
   }
 
+  // Igualador can only complete orders assigned to them (admin can override)
+  if (user.role === "IGUALADOR" && order.igualadorId && order.igualadorId !== user.id) {
+    return NextResponse.json(
+      { error: "Solo el igualador asignado puede completar este pedido" },
+      { status: 403 }
+    );
+  }
+
+  let validatedAyudanteId: string | null = null;
+  if (ayudanteId) {
+    if (ayudanteId === order.igualadorId) {
+      return NextResponse.json(
+        { error: "El ayudante debe ser distinto al igualador principal" },
+        { status: 400 }
+      );
+    }
+
+    const ayudante = await prisma.user.findFirst({
+      where: {
+        id: ayudanteId,
+        active: true,
+        role: "IGUALADOR",
+      },
+      select: { id: true },
+    });
+
+    if (!ayudante) {
+      return NextResponse.json(
+        { error: "El ayudante seleccionado no es válido" },
+        { status: 400 }
+      );
+    }
+
+    validatedAyudanteId = ayudante.id;
+  }
+
   // Complete the order
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
@@ -61,12 +98,14 @@ export async function POST(req: Request) {
       status: "LISTO",
       completedAt: new Date(),
       productionTimeMinutes: productionTimeMinutes || null,
+      ayudanteId: validatedAyudanteId,
     },
     include: {
       client: { select: { name: true, phone: true } },
       colorGroup: { select: { name: true } },
       igualacionLine: { select: { name: true } },
       igualador: { select: { name: true } },
+      ayudante: { select: { name: true } },
     },
   });
 
@@ -76,6 +115,7 @@ export async function POST(req: Request) {
     to: "LISTO",
     folio: order.folio,
     productionTimeMinutes,
+    ayudanteId: validatedAyudanteId,
   });
 
   // TRIGGER 1: Generate and print label

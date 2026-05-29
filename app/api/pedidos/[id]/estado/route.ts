@@ -49,6 +49,13 @@ export async function PATCH(
 
   // FIFO enforcement for igualador: PENDIENTE → EN_PROCESO
   if (newStatus === "EN_PROCESO" && user.role === "IGUALADOR") {
+    if (order.igualadorId && order.igualadorId !== user.id) {
+      return NextResponse.json(
+        { error: "Este pedido está asignado a otro igualador" },
+        { status: 403 }
+      );
+    }
+
     const nextInQueue = await prisma.order.findFirst({
       where: { status: "PENDIENTE" },
       orderBy: { queuePosition: "asc" },
@@ -89,7 +96,10 @@ export async function PATCH(
 
   if (newStatus === "EN_PROCESO") {
     updateData.startedAt = new Date();
-    updateData.igualadorId = user.id;
+    // Preserve principal equalador assigned at order creation (round-robin).
+    if (!order.igualadorId) {
+      updateData.igualadorId = user.id;
+    }
   } else if (newStatus === "LISTO") {
     updateData.completedAt = new Date();
     if (order.startedAt) {
