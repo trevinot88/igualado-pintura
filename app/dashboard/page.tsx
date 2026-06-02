@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Clock, Factory, Handshake } from "lucide-react";
 import { ORDER_SOURCE_LABELS } from "@/lib/utils";
@@ -22,6 +21,43 @@ import {
 
 const SOURCE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
 
+type Period = "dia" | "semana" | "mes" | "anio";
+
+const PERIOD_LABELS: Record<Period, string> = {
+  dia: "Hoy",
+  semana: "Esta Semana",
+  mes: "Este Mes",
+  anio: "Este Año",
+};
+
+function getPeriodDates(period: Period): { from: string; to: string } {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = fmt(now);
+
+  switch (period) {
+    case "dia":
+      return { from: today, to: today };
+    case "semana": {
+      const day = now.getDay(); // 0=Dom, 1=Lun…
+      const diff = day === 0 ? -6 : 1 - day; // lunes de esta semana
+      const start = new Date(now);
+      start.setDate(now.getDate() + diff);
+      return { from: fmt(start), to: today };
+    }
+    case "mes": {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { from: fmt(start), to: today };
+    }
+    case "anio": {
+      const start = new Date(now.getFullYear(), 0, 1);
+      return { from: fmt(start), to: today };
+    }
+  }
+}
+
 interface DashboardData {
   kpis: {
     queueCount: number;
@@ -40,17 +76,17 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [period, setPeriod] = useState<Period>("semana");
 
   useEffect(() => {
+    const { from, to } = getPeriodDates(period);
     const params = new URLSearchParams();
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
+    params.set("from", from);
+    params.set("to", to);
     fetch(`/api/reportes?${params}`)
       .then((r) => r.json())
       .then(setData);
-  }, [from, to]);
+  }, [period]);
 
   if (!data)
     return (
@@ -67,21 +103,21 @@ export default function DashboardPage() {
       {/* ── Header + Filtros ── */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex gap-2 items-center">
-          <label className="text-sm text-slate-500">Desde:</label>
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="w-40"
-          />
-          <label className="text-sm text-slate-500">Hasta:</label>
-          <Input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="w-40"
-          />
+        <div className="flex gap-2">
+          {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={cn(
+                "px-4 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                period === p
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:text-blue-600"
+              )}
+            >
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
         </div>
       </div>
 
