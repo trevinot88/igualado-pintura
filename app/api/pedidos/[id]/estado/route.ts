@@ -23,7 +23,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  const user = requireRole(session?.user, ["ADMIN", "IGUALADOR"]);
+  const user = requireRole(session?.user, ["ADMIN", "IGUALADOR", "FACTURACION"]);
 
   const { id } = await params;
   const body = await req.json();

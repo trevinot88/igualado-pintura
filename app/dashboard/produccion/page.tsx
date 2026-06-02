@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatDate, formatMinutes, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS } from "@/lib/utils";
-import { Play, CheckCircle, Clock, GripVertical } from "lucide-react";
+import { Play, CheckCircle, Clock, GripVertical, Printer, PackageCheck } from "lucide-react";
 
 interface QueueOrder {
   id: string;
@@ -77,6 +77,32 @@ export default function ProduccionPage() {
     const interval = setInterval(fetchQueue, 10000); // Poll every 10s
     return () => clearInterval(interval);
   }, [fetchQueue]);
+
+  async function handleMarkDelivered(orderId: string) {
+    const res = await fetch(`/api/pedidos/${orderId}/estado`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "ENTREGADO" }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "No se pudo marcar como entregado");
+      return;
+    }
+    fetchQueue();
+  }
+
+  async function handlePrintLabel(orderId: string) {
+    const res = await fetch(`/api/pedidos/${orderId}/etiqueta`);
+    const html = await res.text();
+    const win = window.open("", "_blank", "width=400,height=250");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      win.print();
+    }
+  }
 
   async function handleStatusChange(orderId: string, newStatus: string) {
     const res = await fetch(`/api/pedidos/${orderId}/estado`, {
@@ -267,6 +293,25 @@ export default function ProduccionPage() {
                 <p className="text-sm text-slate-500">
                   {order.colorGroup.name} · {order.liters}L · {order.client.name}
                 </p>
+                <div className="flex gap-2 mt-2">
+                  {(role === "ADMIN" || role === "FACTURACION") && (
+                    <Button
+                      size="sm"
+                      className="flex-1 bg-slate-700 hover:bg-slate-800"
+                      onClick={() => handleMarkDelivered(order.id)}
+                    >
+                      <PackageCheck className="h-4 w-4 mr-1" /> Entregar
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handlePrintLabel(order.id)}
+                  >
+                    <Printer className="h-4 w-4 mr-1" /> Etiqueta
+                  </Button>
+                </div>
               </Card>
             ))}
             {completedToday.length === 0 && (
