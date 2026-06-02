@@ -19,7 +19,7 @@ import {
   Legend,
 } from "recharts";
 
-const SOURCE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
+const SOURCE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#a3e635", "#fb923c"];
 
 type Period = "dia" | "semana" | "mes" | "anio";
 
@@ -97,6 +97,17 @@ export default function DashboardPage() {
 
   const { kpis, charts } = data;
   const queueAlert = kpis.queueCount >= 5;
+
+  // Para el donut: expandir la rebanada "Ventas" en una por vendedor
+  const donutData = charts.ordersBySource.flatMap((s) => {
+    if (s.source === "VENTAS" && charts.sellerVolume.length > 0) {
+      return charts.sellerVolume.map((sv) => ({
+        name: `${sv.name} · Ventas`,
+        count: sv.count,
+      }));
+    }
+    return [{ name: ORDER_SOURCE_LABELS[s.source] || s.source, count: s.count }];
+  });
 
   return (
     <div className="space-y-6">
@@ -268,10 +279,7 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={charts.ordersBySource.map((s) => ({
-                    ...s,
-                    name: ORDER_SOURCE_LABELS[s.source] || s.source,
-                  }))}
+                  data={donutData}
                   cx="50%"
                   cy="45%"
                   innerRadius={52}
@@ -280,7 +288,7 @@ export default function DashboardPage() {
                   nameKey="name"
                   paddingAngle={3}
                 >
-                  {charts.ordersBySource.map((_, i) => (
+                  {donutData.map((_, i) => (
                     <Cell
                       key={i}
                       fill={SOURCE_COLORS[i % SOURCE_COLORS.length]}
