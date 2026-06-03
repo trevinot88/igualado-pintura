@@ -134,7 +134,8 @@ export async function POST(req: Request) {
         order.client.phone,
         order.folio,
         order.client.name,
-        orderId
+        orderId,
+        order.colorName
       );
       console.log(`[WhatsApp] Notification sent for order ${order.folio}`);
     } catch (error) {

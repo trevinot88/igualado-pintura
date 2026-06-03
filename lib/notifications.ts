@@ -1,36 +1,72 @@
 import { logAudit } from "./audit";
 
+const GREEN_API_BASE = "https://api.green-api.com";
+
 /**
- * Sends a WhatsApp notification to the client when their order is ready.
- * Integrates with WhatsApp API (Twilio, Meta, etc.)
+ * Normaliza un número de teléfono al formato Green API: 521XXXXXXXXXX@c.us
+ * Acepta: +52 123..., 52123..., 10 dígitos locales MX
+ */
+function formatPhoneForGreenApi(phone: string): string {
+  let digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) {
+    digits = "521" + digits;
+  } else if (digits.startsWith("52") && digits.length === 12) {
+    digits = "521" + digits.slice(2);
+  }
+  return `${digits}@c.us`;
+}
+
+/**
+ * Envía un mensaje WhatsApp usando Green API cuando el pedido está listo.
  */
 export async function sendWhatsAppNotification(
   phone: string,
   orderFolio: string,
   clientName: string,
-  orderId: string
+  orderId: string,
+  colorName?: string
 ): Promise<boolean> {
+  const instanceId = process.env.GREEN_API_INSTANCE_ID;
+  const token = process.env.GREEN_API_TOKEN;
+
+  if (!instanceId || !token) {
+    console.warn(
+      "[WhatsApp] GREEN_API_INSTANCE_ID o GREEN_API_TOKEN no configurados — notificación omitida"
+    );
+    return false;
+  }
+
+  const chatId = formatPhoneForGreenApi(phone);
+  const colorPart = colorName ? `de *${colorName}* ` : "";
+  const message =
+    `¡Hola ${clientName}! 🎨 Tu pedido ${colorPart}ya está *listo para recolección* en sucursal.\n\nFolio: *${orderFolio}*\n\n_Pinturas Dyrlo — gracias por tu preferencia_ 🙏`;
+
+  const url = `${GREEN_API_BASE}/waInstance${instanceId}/sendMessage/${token}`;
+
   try {
-    // TODO: Integrate with WhatsApp API
-    // Example with Twilio:
-    // const message = await twilioClient.messages.create({
-    //   from: 'whatsapp:+14155238886',
-    //   to: `whatsapp:${phone}`,
-    //   body: `Hola ${clientName}, tu pedido ${orderFolio} está listo para recoger. ¡Gracias!`
-    // });
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId, message }),
+    });
 
-    console.log(`[WhatsApp] Sending notification to ${phone} for order ${orderFolio}`);
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[WhatsApp] Error ${res.status} de Green API:`, body);
+      return false;
+    }
 
-    // Log to audit
+    console.log(`[WhatsApp] Mensaje enviado a ${chatId} para pedido ${orderFolio}`);
+
     await logAudit(null, "WHATSAPP_SENT", "Order", orderId, {
-      phone,
+      phone: chatId,
       folio: orderFolio,
       clientName,
     });
 
     return true;
   } catch (error) {
-    console.error("Error sending WhatsApp notification:", error);
+    console.error("[WhatsApp] Error al llamar Green API:", error);
     return false;
   }
 }
@@ -44,7 +80,6 @@ export async function sendEmailNotification(
   clientName: string
 ): Promise<boolean> {
   try {
-    // TODO: Integrate with email service (Resend, SendGrid, etc.)
     console.log(`[Email] Sending notification to ${email} for order ${orderFolio}`);
     return true;
   } catch (error) {
