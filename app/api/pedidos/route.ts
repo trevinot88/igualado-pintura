@@ -92,6 +92,7 @@ export async function GET(req: Request) {
       client: { select: { name: true, email: true, phone: true } },
       seller: { select: { name: true } },
       igualador: { select: { name: true } },
+      ayudante: { select: { name: true } },
       colorGroup: { select: { name: true } },
       igualacionLine: { select: { name: true, code: true } },
     },

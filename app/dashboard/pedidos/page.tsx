@@ -25,6 +25,8 @@ interface Order {
   client: { name: string };
   seller: { name: string };
   colorGroup: { name: string };
+  igualador: { name: string } | null;
+  ayudante: { name: string } | null;
 }
 
 export default function PedidosPage() {
@@ -106,6 +108,7 @@ export default function PedidosPage() {
                 <th className="text-left px-4 py-3 font-medium">Cliente</th>
                 <th className="text-left px-4 py-3 font-medium">Litros</th>
                 <th className="text-left px-4 py-3 font-medium">Canal</th>
+                <th className="text-left px-4 py-3 font-medium">Igualador</th>
                 <th className="text-left px-4 py-3 font-medium">Estado</th>
                 <th className="text-left px-4 py-3 font-medium">Fecha</th>
                 <th className="text-left px-4 py-3 font-medium"></th>
@@ -126,6 +129,18 @@ export default function PedidosPage() {
                   <td className="px-4 py-3">{order.liters}L</td>
                   <td className="px-4 py-3 text-xs">
                     {ORDER_SOURCE_LABELS[order.source] || order.source}
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    {order.igualador ? (
+                      <div>
+                        <span>{order.igualador.name}</span>
+                        {order.ayudante && (
+                          <span className="block text-slate-400">+ {order.ayudante.name}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <Badge className={ORDER_STATUS_COLORS[order.status]}>
