@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { logAudit, logOrderEdit } from "@/lib/audit";
+import { logAudit } from "@/lib/audit";
 import { requireRole, canManageCatalogs } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -88,13 +88,10 @@ export async function PATCH(
     data,
   });
 
-  await logOrderEdit(
-    user.id,
-    line.id,
-    oldLine as unknown as Record<string, unknown>,
-    line as unknown as Record<string, unknown>,
-    { entity: "IgualacionLine" }
-  );
+  await logAudit(user.id, "UPDATE", "IgualacionLine", line.id, {
+    code: line.code,
+    changes: data,
+  });
 
   return NextResponse.json(line);
 }
