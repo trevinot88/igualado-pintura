@@ -120,7 +120,7 @@ export default function CodigosIGPage() {
         body: JSON.stringify({
           code: editCode,
           name: editName,
-          description: editDescription || null,
+          description: editDescription || undefined,
           active: editActive,
           sortOrder: editSortOrder,
         }),

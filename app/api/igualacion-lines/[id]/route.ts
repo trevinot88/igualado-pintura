@@ -8,7 +8,7 @@ import { z } from "zod";
 const updateLineSchema = z.object({
   code: z.string().min(1).max(50).optional(),
   name: z.string().min(1).max(100).optional(),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   active: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });
