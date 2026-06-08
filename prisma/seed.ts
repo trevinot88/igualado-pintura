@@ -80,42 +80,37 @@ async function main() {
   });
 
   // Create color groups (sin price tiers)
-  const basicos = await prisma.colorGroup.create({
+  const regular = await prisma.colorGroup.create({
     data: {
-      name: "Básicos",
-      description: "Blancos, negros y grises",
+      name: "REGULAR",
       sortOrder: 1,
     },
   });
 
-  const pasteles = await prisma.colorGroup.create({
+  const organico = await prisma.colorGroup.create({
     data: {
-      name: "Pasteles",
-      description: "Tonos suaves y pastel",
+      name: "ORGANICO",
       sortOrder: 2,
     },
   });
 
-  const medios = await prisma.colorGroup.create({
+  const organicoAperlado = await prisma.colorGroup.create({
     data: {
-      name: "Medios",
-      description: "Tonos medios y saturados",
+      name: "ORGANICO APERLADO",
       sortOrder: 3,
     },
   });
 
-  const intensos = await prisma.colorGroup.create({
+  const rojosMarrones = await prisma.colorGroup.create({
     data: {
-      name: "Intensos",
-      description: "Rojos, azules intensos, amarillos",
+      name: "ROJOS Y MARRONES",
       sortOrder: 4,
     },
   });
 
-  const especiales = await prisma.colorGroup.create({
+  const rojosMarronesAperlados = await prisma.colorGroup.create({
     data: {
-      name: "Especiales",
-      description: "Metálicos, perlados, fluorescentes",
+      name: "ROJOS Y MARRONES APERLADOS",
       sortOrder: 5,
     },
   });
@@ -459,7 +454,7 @@ async function main() {
     {
       colorName: "Blanco Hueso",
       liters: 4,
-      group: basicos,
+      group: regular,
       line: lineComex,
       source: "MOSTRADOR" as const,
       status: "PENDIENTE" as const,
@@ -468,7 +463,7 @@ async function main() {
     {
       colorName: "Rosa Pastel",
       liters: 2,
-      group: pasteles,
+      group: organico,
       line: lineBerel,
       source: "VENTAS" as const,
       status: "PENDIENTE" as const,
@@ -477,7 +472,7 @@ async function main() {
     {
       colorName: "Azul Cielo",
       liters: 8,
-      group: medios,
+      group: organicoAperlado,
       line: lineSherwin,
       source: "WHATSAPP" as const,
       status: "PENDIENTE" as const,
@@ -486,7 +481,7 @@ async function main() {
     {
       colorName: "Rojo Ferrari",
       liters: 1,
-      group: intensos,
+      group: rojosMarrones,
       line: lineComex,
       source: "MOSTRADOR" as const,
       status: "EN_PROCESO" as const,
@@ -497,7 +492,7 @@ async function main() {
     {
       colorName: "Verde Jade",
       liters: 12,
-      group: medios,
+      group: organicoAperlado,
       line: lineBerel,
       source: "VENTAS" as const,
       status: "LISTO" as const,
@@ -510,7 +505,7 @@ async function main() {
     {
       colorName: "Dorado Metálico",
       liters: 3,
-      group: especiales,
+      group: rojosMarronesAperlados,
       line: lineSherwin,
       source: "REDES_SOCIALES" as const,
       status: "ENTREGADO" as const,
