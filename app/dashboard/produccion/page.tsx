@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatDate, formatMinutes, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS } from "@/lib/utils";
-import { Play, CheckCircle, Clock, GripVertical, Printer, PackageCheck } from "lucide-react";
+import { Play, CheckCircle, Clock, GripVertical, Printer, PackageCheck, UserCheck } from "lucide-react";
 
 interface QueueOrder {
   id: string;
@@ -38,7 +38,9 @@ interface IgualadorOption {
 
 export default function ProduccionPage() {
   const { data: session } = useSession();
-  const role = (session?.user as { role?: string })?.role;
+  const user = session?.user as { id?: string; role?: string; name?: string } | undefined;
+  const role = user?.role;
+  const userId = user?.id;
   const [queue, setQueue] = useState<QueueOrder[]>([]);
   const [completedToday, setCompletedToday] = useState<QueueOrder[]>([]);
   const [igualadores, setIgualadores] = useState<IgualadorOption[]>([]);
@@ -47,6 +49,10 @@ export default function ProduccionPage() {
   const [ayudanteId, setAyudanteId] = useState("");
   const [completing, setCompleting] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Estado para confirmar override de turno
+  const [showTurnoConfirm, setShowTurnoConfirm] = useState(false);
+  const [pendingTakeOrder, setPendingTakeOrder] = useState<QueueOrder | null>(null);
+  const [lastEqualizerName, setLastEqualizerName] = useState("");
 
   const fetchQueue = useCallback(() => {
     fetch("/api/produccion")
@@ -104,18 +110,49 @@ export default function ProduccionPage() {
     }
   }
 
-  async function handleStatusChange(orderId: string, newStatus: string) {
+  async function doTakeOrder(orderId: string) {
     const res = await fetch(`/api/pedidos/${orderId}/estado`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({ status: "EN_PROCESO" }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      alert(err.error || "No se pudo actualizar el estado del pedido");
+      alert(err.error || "No se pudo tomar el pedido");
       return;
     }
     fetchQueue();
+  }
+
+  /** Al hacer clic en "Tomar Siguiente", verifica si es el turno de este igualador */
+  async function handleTakeOrder(order: QueueOrder) {
+    // Si es ADMIN, no preguntar
+    if (role === "ADMIN") {
+      doTakeOrder(order.id);
+      return;
+    }
+
+    // Buscar el último EN_PROCESO que fue tomado por OTRO igualador
+    const enProceso = queue.filter((o) => o.status === "EN_PROCESO");
+    const lastTaken = enProceso[enProceso.length - 1]; // El último que entró
+
+    if (lastTaken && lastTaken.igualadorId && lastTaken.igualadorId !== userId) {
+      // No es su turno - preguntar confirmación
+      setLastEqualizerName(lastTaken.igualador?.name || "otro igualador");
+      setPendingTakeOrder(order);
+      setShowTurnoConfirm(true);
+    } else {
+      // Es su turno o no hay nadie en proceso - tomar directo
+      doTakeOrder(order.id);
+    }
+  }
+
+  function confirmTakeOrder() {
+    if (pendingTakeOrder) {
+      doTakeOrder(pendingTakeOrder.id);
+    }
+    setShowTurnoConfirm(false);
+    setPendingTakeOrder(null);
   }
 
   async function handleReorder(dragIdx: number, dropIdx: number) {
@@ -211,12 +248,12 @@ export default function ProduccionPage() {
                     <p className="text-sm text-slate-500">
                       {order.colorGroup.name} · {order.liters}L · {order.client.name}
                     </p>
-                    {/* FIFO: only first in queue can be taken */}
+                    {/* FIFO: solo el primero puede ser tomado */}
                     {order.id === nextInQueue?.id && (role === "ADMIN" || role === "IGUALADOR") && (
                       <Button
                         size="sm"
                         className="mt-2 w-full"
-                        onClick={() => handleStatusChange(order.id, "EN_PROCESO")}
+                        onClick={() => handleTakeOrder(order)}
                       >
                         <Play className="h-4 w-4 mr-1" /> Tomar Siguiente
                       </Button>
@@ -251,8 +288,8 @@ export default function ProduccionPage() {
                   {order.colorGroup.name} · {order.liters}L · {order.client.name}
                 </p>
                 {order.igualador && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    Igualador: {order.igualador.name}
+                  <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                    <UserCheck className="h-3 w-3" /> {order.igualador.name}
                   </p>
                 )}
                 {order.startedAt && (
@@ -321,6 +358,36 @@ export default function ProduccionPage() {
         </div>
       </div>
 
+      {/* Modal de confirmación de turno */}
+      <Dialog open={showTurnoConfirm} onOpenChange={setShowTurnoConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-amber-500" />
+              ¿No es tu turno?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              <span className="font-semibold">{lastEqualizerName}</span> tomó el último pedido. 
+              Normalmente debería tomar el siguiente, pero si está ausente puedes tomarlo tú.
+            </p>
+            <p className="text-sm text-slate-500">
+              ¿Seguro que quieres tomar este pedido?
+            </p>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" onClick={() => setShowTurnoConfirm(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={confirmTakeOrder}>
+                Sí, tomarlo yo
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de completar */}
       <Dialog open={showCompleteModal} onOpenChange={setShowCompleteModal}>
         <DialogContent>
           <DialogHeader>
