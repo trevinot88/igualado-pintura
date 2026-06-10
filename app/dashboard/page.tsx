@@ -385,14 +385,14 @@ export default function DashboardPage() {
       )}
 
       {/* ── Litros por Grupo de Color ── */}
-      {charts.litersByGroup && charts.litersByGroup.length > 0 && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card>
-            <CardTitle className="px-6 pt-6 pb-1">Litros por Grupo de Color</CardTitle>
-            <p className="px-6 text-xs text-slate-400 mb-2">
-              Volumen total de pintura igualada por grupo
-            </p>
-            <CardContent className="h-[300px] p-4">
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardTitle className="px-6 pt-6 pb-1">Litros por Grupo de Color</CardTitle>
+          <p className="px-6 text-xs text-slate-400 mb-2">
+            Volumen total de pintura igualada por grupo
+          </p>
+          <CardContent className="h-[300px] p-4">
+            {charts.litersByGroup && charts.litersByGroup.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={charts.litersByGroup}
@@ -415,15 +415,21 @@ export default function DashboardPage() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            ) : (
+              <div className="flex items-center justify-center h-full text-slate-400">
+                Sin datos en el rango seleccionado
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardTitle className="px-6 pt-6 pb-1">Litros por Color Exacto</CardTitle>
-            <p className="px-6 text-xs text-slate-400 mb-2">
-              Los colores más igualados por volumen
-            </p>
-            <CardContent className="max-h-[300px] overflow-y-auto p-4">
+        <Card>
+          <CardTitle className="px-6 pt-6 pb-1">Litros por Color Exacto</CardTitle>
+          <p className="px-6 text-xs text-slate-400 mb-2">
+            Los colores más igualados por volumen
+          </p>
+          <CardContent className="max-h-[300px] overflow-y-auto p-4">
+            {charts.litersByColor && charts.litersByColor.length > 0 ? (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-slate-500">
@@ -442,10 +448,14 @@ export default function DashboardPage() {
                   ))}
                 </tbody>
               </table>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            ) : (
+              <div className="flex items-center justify-center h-48 text-slate-400">
+                Sin datos en el rango seleccionado
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
