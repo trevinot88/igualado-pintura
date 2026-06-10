@@ -135,15 +135,13 @@ export async function POST(req: Request) {
     effectiveSellerId = seller.id;
   }
 
-  let assignedIgualadorId: string | null = null;
-  if (user.role === "FACTURACION") {
-    assignedIgualadorId = await getNextIgualadorIdRoundRobin();
-    if (!assignedIgualadorId) {
-      return NextResponse.json(
-        { error: "No hay igualadores activos para asignar el pedido" },
-        { status: 400 }
-      );
-    }
+  // Siempre asignar igualador vía round-robin (Pedro o Enrique)
+  const assignedIgualadorId = await getNextIgualadorIdRoundRobin();
+  if (!assignedIgualadorId) {
+    return NextResponse.json(
+      { error: "No hay igualadores activos para asignar el pedido" },
+      { status: 400 }
+    );
   }
 
   // Generate folio and queue position atomically

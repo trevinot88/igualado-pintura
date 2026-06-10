@@ -4,6 +4,7 @@ import { logAudit, logOrderEdit } from "@/lib/audit";
 import { requireRole, canEditOrder } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 const updateOrderSchema = z.object({
   colorGroupId: z.string().optional(),
@@ -103,14 +104,26 @@ export async function DELETE(
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-  await prisma.order.update({
-    where: { id },
-    data: { status: "CANCELADO", cancelledAt: new Date() },
-  });
+  // PENDIENTE: eliminar realmente de la DB (liberar queuePosition)
+  // EN_PROCESO, LISTO, etc: solo cancelar
+  if (order.status === "PENDIENTE") {
+    // Delete related records first
+    await prisma.$transaction([
+      prisma.auditLog.deleteMany({ where: { entity: "Order", entityId: id } }),
+      prisma.label.deleteMany({ where: { orderId: id } }),
+      prisma.order.delete({ where: { id } }),
+    ]);
+  } else {
+    await prisma.order.update({
+      where: { id },
+      data: { status: "CANCELADO", cancelledAt: new Date() },
+    });
+  }
 
   await logAudit(user.id, "DELETE", "Order", id, {
     folio: order.folio,
-    action: "cancelled",
+    status: order.status,
+    action: order.status === "PENDIENTE" ? "deleted" : "cancelled",
   });
 
   return NextResponse.json({ ok: true });

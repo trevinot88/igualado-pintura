@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,7 @@ import {
   ORDER_STATUS_LABELS,
   ORDER_SOURCE_LABELS,
 } from "@/lib/utils";
-import { Search, Filter, Eye } from "lucide-react";
+import { Search, Filter, Eye, Trash2 } from "lucide-react";
 
 interface Order {
   id: string;
@@ -30,6 +31,8 @@ interface Order {
 }
 
 export default function PedidosPage() {
+  const { data: session } = useSession();
+  const role = (session?.user as { role?: string })?.role;
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -47,6 +50,19 @@ export default function PedidosPage() {
         setLoading(false);
       });
   }, [search, statusFilter]);
+
+  async function handleDeleteOrder(orderId: string, folio: string) {
+    if (!window.confirm(`¿Eliminar/Cancelar pedido ${folio}?`)) return;
+    const res = await fetch(`/api/pedidos/${orderId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "No se pudo eliminar el pedido");
+      return;
+    }
+    // Refresh
+    setSearch((s) => s + " "); // trigger re-fetch
+    setTimeout(() => setSearch((s) => s.trim()), 0);
+  }
 
   const statuses = [
     "",
@@ -150,7 +166,16 @@ export default function PedidosPage() {
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {formatDate(order.createdAt)}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 flex items-center gap-1">
+                    {role === "ADMIN" && (
+                      <button
+                        onClick={() => handleDeleteOrder(order.id, order.folio)}
+                        className="text-slate-400 hover:text-red-600 transition-colors p-1"
+                        title="Eliminar/Cancelar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                     <Link href={`/dashboard/pedidos/${order.id}`}>
                       <Button variant="ghost" size="icon">
                         <Eye className="h-4 w-4" />

@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatDate, formatMinutes, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS } from "@/lib/utils";
-import { Play, CheckCircle, Clock, GripVertical, Printer, PackageCheck, UserCheck } from "lucide-react";
+import { Play, CheckCircle, Clock, GripVertical, Printer, PackageCheck, UserCheck, Trash2 } from "lucide-react";
 
 interface QueueOrder {
   id: string;
@@ -175,6 +175,17 @@ export default function ProduccionPage() {
     setShowCompleteModal(true);
   }
 
+  async function handleDeleteOrder(orderId: string, folio: string) {
+    if (!window.confirm(`¿Eliminar/Cancelar pedido ${folio}?`)) return;
+    const res = await fetch(`/api/pedidos/${orderId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "No se pudo eliminar el pedido");
+      return;
+    }
+    fetchQueue();
+  }
+
   async function handleCompleteOrder() {
     if (!selectedOrder) return;
     setCompleting(true);
@@ -240,9 +251,20 @@ export default function ProduccionPage() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="font-mono font-bold text-sm">{order.folio}</span>
-                      <Badge className={ORDER_STATUS_COLORS[order.status]}>
-                        {ORDER_STATUS_LABELS[order.status]}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        {role === "ADMIN" && (
+                          <button
+                            onClick={() => handleDeleteOrder(order.id, order.folio)}
+                            className="text-slate-400 hover:text-red-600 transition-colors"
+                            title="Eliminar/Cancelar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                        <Badge className={ORDER_STATUS_COLORS[order.status]}>
+                          {ORDER_STATUS_LABELS[order.status]}
+                        </Badge>
+                      </div>
                     </div>
                     <p className="font-semibold mt-1">{order.colorName}</p>
                     <p className="text-sm text-slate-500">
@@ -279,9 +301,20 @@ export default function ProduccionPage() {
               <Card key={order.id} className="p-4 border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{order.folio}</span>
-                  <Badge className={ORDER_STATUS_COLORS[order.status]}>
-                    {ORDER_STATUS_LABELS[order.status]}
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    {role === "ADMIN" && (
+                      <button
+                        onClick={() => handleDeleteOrder(order.id, order.folio)}
+                        className="text-slate-400 hover:text-red-600 transition-colors"
+                        title="Eliminar/Cancelar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                    <Badge className={ORDER_STATUS_COLORS[order.status]}>
+                      {ORDER_STATUS_LABELS[order.status]}
+                    </Badge>
+                  </div>
                 </div>
                 <p className="font-semibold mt-1">{order.colorName}</p>
                 <p className="text-sm text-slate-500">
@@ -324,7 +357,18 @@ export default function ProduccionPage() {
               <Card key={order.id} className="p-4 border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-sm">{order.folio}</span>
-                  <Badge className={ORDER_STATUS_COLORS.LISTO}>Listo</Badge>
+                  <div className="flex items-center gap-1">
+                    {role === "ADMIN" && (
+                      <button
+                        onClick={() => handleDeleteOrder(order.id, order.folio)}
+                        className="text-slate-400 hover:text-red-600 transition-colors"
+                        title="Eliminar/Cancelar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                    <Badge className={ORDER_STATUS_COLORS.LISTO}>Listo</Badge>
+                  </div>
                 </div>
                 <p className="font-semibold mt-1">{order.colorName}</p>
                 <p className="text-sm text-slate-500">
