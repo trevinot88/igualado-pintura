@@ -58,7 +58,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@dyrlo.com"
+              placeholder="correo@ejemplo.com"
               required
             />
           </div>
@@ -78,10 +78,6 @@ export default function LoginPage() {
             {loading ? "Ingresando..." : "Iniciar Sesión"}
           </Button>
         </form>
-
-        <p className="text-center text-xs text-slate-500">
-          Demo: admin@dyrlo.com / admin123
-        </p>
       </div>
     </div>
   );

@@ -21,6 +21,15 @@ import {
 
 const SOURCE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#a3e635", "#fb923c"];
 
+const GROUP_COLORS: Record<string, string> = {
+  "Básicos": "#3b82f6",
+  "Premium": "#8b5cf6",
+  "Metálicos": "#f59e0b",
+  "Especiales": "#ec4899",
+};
+
+const GROUP_COLORS_ARRAY = ["#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#10b981", "#06b6d4", "#fb923c", "#a3e635"];
+
 type Period = "dia" | "semana" | "mes" | "anio";
 
 const PERIOD_LABELS: Record<Period, string> = {
@@ -71,6 +80,8 @@ interface DashboardData {
     igualadorStacked: { name: string; solo: number; conAyuda: number }[];
     sellerVolume: { name: string; count: number }[];
     crossAssistance: { principal: string; helper: string; count: number }[];
+    litersByGroup: { groupName: string; totalLiters: number }[];
+    litersByColor: { colorName: string; groupName: string; totalLiters: number }[];
   };
 }
 
@@ -371,6 +382,69 @@ export default function DashboardPage() {
             </tbody>
           </table>
         </Card>
+      )}
+
+      {/* ── Litros por Grupo de Color ── */}
+      {charts.litersByGroup && charts.litersByGroup.length > 0 && (
+        <div className="grid md:grid-cols-2 gap-6">
+          <Card>
+            <CardTitle className="px-6 pt-6 pb-1">Litros por Grupo de Color</CardTitle>
+            <p className="px-6 text-xs text-slate-400 mb-2">
+              Volumen total de pintura igualada por grupo
+            </p>
+            <CardContent className="h-[300px] p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={charts.litersByGroup}
+                  layout="vertical"
+                  margin={{ left: 80, right: 30, top: 4, bottom: 4 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 12 }} />
+                  <YAxis
+                    type="category"
+                    dataKey="groupName"
+                    tick={{ fontSize: 13 }}
+                    width={80}
+                  />
+                  <Tooltip formatter={(v: unknown) => [`${Number(v).toFixed(1)} L`, "Volumen"]} />
+                  <Bar dataKey="totalLiters" name="Litros" radius={[0, 4, 4, 0]}>
+                    {charts.litersByGroup.map((entry, i) => (
+                      <Cell key={i} fill={GROUP_COLORS[entry.groupName] || GROUP_COLORS_ARRAY[i % GROUP_COLORS_ARRAY.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardTitle className="px-6 pt-6 pb-1">Litros por Color Exacto</CardTitle>
+            <p className="px-6 text-xs text-slate-400 mb-2">
+              Los colores más igualados por volumen
+            </p>
+            <CardContent className="max-h-[300px] overflow-y-auto p-4">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-slate-500">
+                    <th className="py-2">Color</th>
+                    <th className="py-2">Grupo</th>
+                    <th className="py-2 text-right">Litros</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {charts.litersByColor.map((row, i) => (
+                    <tr key={i} className="border-b border-slate-100">
+                      <td className="py-2 font-medium">{row.colorName}</td>
+                      <td className="py-2 text-slate-600">{row.groupName}</td>
+                      <td className="py-2 text-right font-semibold">{row.totalLiters.toFixed(1)} L</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

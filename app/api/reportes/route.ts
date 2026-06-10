@@ -40,6 +40,8 @@ export async function GET(req: Request) {
     igualadorConAyuda,
     sellerVolume,
     crossAssistance,
+    litersByGroupData,
+    litersByColorData,
   ] = await Promise.all([
     // KPI 1 – Pedidos en cola (siempre en tiempo real)
     prisma.order.count({
@@ -125,6 +127,26 @@ export async function GET(req: Request) {
         ...rangeWhere,
       },
     }),
+
+    // Litros por Grupo de Color
+    prisma.colorGroup.findMany({
+      select: {
+        name: true,
+        orders: {
+          where: { status: { not: "CANCELADO" }, ...rangeWhere },
+          select: { liters: true },
+        },
+      },
+    }),
+
+    // Litros por Color Exacto (colorName)
+    prisma.order.groupBy({
+      by: ["colorName", "colorGroupId"],
+      _sum: { liters: true },
+      where: { status: { not: "CANCELADO" }, ...rangeWhere },
+      orderBy: { _sum: { liters: "desc" } },
+      take: 20,
+    }),
   ]);
 
   // Recopilar todos los user IDs que necesitamos enriquecer
@@ -173,6 +195,33 @@ export async function GET(req: Request) {
       ? Math.round((todayWithHelp / todayCompleted) * 100)
       : 0;
 
+  // Litros por grupo de color - calcular suma de liters por grupo
+  const litersByGroup = litersByGroupData.map((g) => ({
+    groupName: g.name,
+    totalLiters: g.orders.reduce((sum, o) => sum + o.liters, 0),
+  })).filter((g) => g.totalLiters > 0);
+
+  // Litros por color exacto - enriquecer con nombre del grupo
+  const colorGroupMap = Object.fromEntries(
+    litersByGroupData.map((g) => [g.name, g.name])
+  );
+  // Get color group names by fetching them
+  let colorGroupNames: Record<string, string> = {};
+  try {
+    const colorGroups = await prisma.colorGroup.findMany({
+      select: { id: true, name: true },
+    });
+    colorGroupNames = Object.fromEntries(colorGroups.map((g) => [g.id, g.name]));
+  } catch {
+    colorGroupNames = {};
+  }
+
+  const litersByColor = litersByColorData.map((c) => ({
+    colorName: c.colorName,
+    groupName: colorGroupNames[c.colorGroupId] || "Desconocido",
+    totalLiters: c._sum.liters || 0,
+  }));
+
   return NextResponse.json({
     kpis: {
       queueCount,
@@ -203,6 +252,8 @@ export async function GET(req: Request) {
           count: i._count,
         }))
         .sort((a, b) => b.count - a.count),
+      litersByGroup,
+      litersByColor,
     },
   });
 }

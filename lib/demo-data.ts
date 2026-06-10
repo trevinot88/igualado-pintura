@@ -39,6 +39,23 @@ export const DEMO_REPORTES = {
       { principal: "Enrique", helper: "Pedro", count: 17 },
       { principal: "Pedro", helper: "Enrique", count: 8 },
     ],
+    litersByGroup: [
+      { groupName: "Básicos", totalLiters: 48.5 },
+      { groupName: "Premium", totalLiters: 32.0 },
+      { groupName: "Metálicos", totalLiters: 18.5 },
+      { groupName: "Especiales", totalLiters: 12.0 },
+    ],
+    litersByColor: [
+      { colorName: "Blanco Hueso", groupName: "Básicos", totalLiters: 16.0 },
+      { colorName: "Gris Perla", groupName: "Básicos", totalLiters: 12.5 },
+      { colorName: "Negro Mate", groupName: "Básicos", totalLiters: 20.0 },
+      { colorName: "Azul Marino", groupName: "Premium", totalLiters: 10.0 },
+      { colorName: "Verde Olivo", groupName: "Premium", totalLiters: 22.0 },
+      { colorName: "Rojo Ferrari", groupName: "Metálicos", totalLiters: 8.5 },
+      { colorName: "Plata Metalizado", groupName: "Metálicos", totalLiters: 10.0 },
+      { colorName: "Verde Esmeralda", groupName: "Especiales", totalLiters: 7.0 },
+      { colorName: "Azul Eléctrico", groupName: "Especiales", totalLiters: 5.0 },
+    ],
   },
 };
 
