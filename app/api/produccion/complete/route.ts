@@ -63,6 +63,27 @@ export async function POST(req: Request) {
     );
   }
 
+  // FIFO VALIDATION: Non-admin users cannot complete an order if an older order is still EN_PROCESO
+  if (user.role !== "ADMIN") {
+    const olderInProcess = await prisma.order.findFirst({
+      where: {
+        status: "EN_PROCESO",
+        id: { not: orderId },
+        queuePosition: { lt: order.queuePosition ?? 999999 },
+      },
+      orderBy: { queuePosition: "asc" },
+    });
+
+    if (olderInProcess) {
+      return NextResponse.json(
+        {
+          error: `No puedes completar este pedido antes que el #${olderInProcess.folio} que entró primero a producción`,
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   let validatedAyudanteId: string | null = null;
   if (ayudanteId) {
     if (ayudanteId === order.igualadorId) {
