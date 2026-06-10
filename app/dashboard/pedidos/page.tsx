@@ -13,7 +13,7 @@ import {
   ORDER_STATUS_LABELS,
   ORDER_SOURCE_LABELS,
 } from "@/lib/utils";
-import { Search, Filter, Eye, Trash2 } from "lucide-react";
+import { Search, Filter, Eye, Trash2, Calendar } from "lucide-react";
 
 interface Order {
   id: string;
@@ -30,18 +30,43 @@ interface Order {
   ayudante: { name: string } | null;
 }
 
+type DateFilter = "" | "day" | "week" | "month" | "year";
+
+function getDateRange(filter: DateFilter): { from?: string; to?: string } {
+  if (!filter) return {};
+  const now = new Date();
+  const from = new Date();
+  if (filter === "day") {
+    from.setHours(0, 0, 0, 0);
+  } else if (filter === "week") {
+    from.setDate(from.getDate() - from.getDay());
+    from.setHours(0, 0, 0, 0);
+  } else if (filter === "month") {
+    from.setDate(1);
+    from.setHours(0, 0, 0, 0);
+  } else if (filter === "year") {
+    from.setMonth(0, 1);
+    from.setHours(0, 0, 0, 0);
+  }
+  return { from: from.toISOString(), to: now.toISOString() };
+}
+
 export default function PedidosPage() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string })?.role;
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (statusFilter) params.set("status", statusFilter);
+    const dr = getDateRange(dateFilter);
+    if (dr.from) params.set("from", dr.from);
+    if (dr.to) params.set("to", dr.to);
 
     fetch(`/api/pedidos?${params}`)
       .then((r) => r.json())
@@ -49,7 +74,7 @@ export default function PedidosPage() {
         setOrders(data);
         setLoading(false);
       });
-  }, [search, statusFilter]);
+  }, [search, statusFilter, dateFilter]);
 
   async function handleDeleteOrder(orderId: string, folio: string) {
     if (!window.confirm(`¿Eliminar/Cancelar pedido ${folio}?`)) return;
@@ -109,6 +134,34 @@ export default function PedidosPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Date Filters */}
+      <div className="flex items-center gap-2">
+        <Calendar className="h-4 w-4 text-slate-400" />
+        <div className="flex gap-1 flex-wrap">
+          {(["", "day", "week", "month", "year"] as const).map((d) => (
+            <button
+              key={d}
+              onClick={() => setDateFilter(d)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                dateFilter === d
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+              }`}
+            >
+              {d === "" ? "Todas las fechas" : d === "day" ? "Hoy" : d === "week" ? "Semana" : d === "month" ? "Mes" : "Año"}
+            </button>
+          ))}
+        </div>
+        {dateFilter && (
+          <button
+            onClick={() => setDateFilter("")}
+            className="text-xs text-slate-400 hover:text-slate-600 underline"
+          >
+            Limpiar
+          </button>
+        )}
       </div>
 
       {/* Orders Table */}
