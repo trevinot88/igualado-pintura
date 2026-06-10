@@ -132,12 +132,19 @@ export default function ProduccionPage() {
       return;
     }
 
-    // Buscar el último EN_PROCESO que fue tomado por OTRO igualador
+    // Caso 1: El pedido en cola está asignado a otro igualador
+    if (order.igualadorId && order.igualadorId !== userId) {
+      setLastEqualizerName(order.igualador?.name || "otro igualador");
+      setPendingTakeOrder(order);
+      setShowTurnoConfirm(true);
+      return;
+    }
+
+    // Caso 2: Buscar el último EN_PROCESO que fue tomado por OTRO igualador
     const enProceso = queue.filter((o) => o.status === "EN_PROCESO");
-    const lastTaken = enProceso[enProceso.length - 1]; // El último que entró
+    const lastTaken = enProceso[enProceso.length - 1];
 
     if (lastTaken && lastTaken.igualadorId && lastTaken.igualadorId !== userId) {
-      // No es su turno - preguntar confirmación
       setLastEqualizerName(lastTaken.igualador?.name || "otro igualador");
       setPendingTakeOrder(order);
       setShowTurnoConfirm(true);
