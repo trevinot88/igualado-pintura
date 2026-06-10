@@ -331,8 +331,8 @@ export default function NuevoPedidoPage() {
                   <label className="text-sm font-medium">Litros</label>
                   <Input
                     type="number"
-                    step="0.5"
-                    min="0.5"
+                    step="0.001"
+                    min="0.001"
                     value={item.liters}
                     onChange={(e) =>
                       updateItem(item.id, "liters", parseFloat(e.target.value) || 0)
