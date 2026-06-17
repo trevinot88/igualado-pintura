@@ -63,7 +63,7 @@ async function main() {
     data: {
       name: "Carlos López",
       email: "igualador@dyrlo.com",
-      hashedPassword: hashPassword("igualador123"),
+      hashedPassword: hashPassword("dyrlo2026"),
       role: "IGUALADOR",
       locationId: location.id,
     },
@@ -548,7 +548,7 @@ async function main() {
   console.log("\n📋 Usuarios creados:");
   console.log("  - admin@dyrlo.com / admin123 (ADMIN)");
   console.log("  - facturacion@dyrlo.com / facturacion123 (FACTURACION)");
-  console.log("  - igualador@dyrlo.com / igualador123 (IGUALADOR)");
+  console.log("  - igualador@dyrlo.com / dyrlo2026 (IGUALADOR)");
   console.log("  - vendedor@dyrlo.com / vendedor123 (VENDEDOR_READONLY)");
   console.log(`\n📦 ${sampleOrders.length} pedidos de ejemplo creados`);
   console.log(`🎨 5 grupos de color creados`);

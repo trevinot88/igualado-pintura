@@ -120,6 +120,17 @@ model FolioSequence {
   lastValue Int    @default(0)
 }
 
+/// 🆕 Tabla independiente para los operadores físicos del taller
+/// (personas reales, distinto de la cuenta de sistema compartida).
+model Igualador {
+  id        String   @id @default(cuid())
+  nombre    String
+  activo    Boolean  @default(true)
+  creadoAt  DateTime @default(now())
+  actualizadoAt DateTime @updatedAt
+  orders    Order[]  @relation("OperadorFisicoOrders")
+}
+
 model Order {
   id                    String          @id @default(cuid())
   folio                 String          @unique
@@ -131,6 +142,8 @@ model Order {
   igualador             User?           @relation("IgualadorOrders", fields: [igualadorId], references: [id])
   ayudanteId            String?
   ayudante              User?           @relation("AyudanteOrders", fields: [ayudanteId], references: [id])
+  operadorFisicoId      String?
+  operadorFisico        Igualador?      @relation("OperadorFisicoOrders", fields: [operadorFisicoId], references: [id])
   colorGroupId          String
   colorGroup            ColorGroup      @relation(fields: [colorGroupId], references: [id])
   igualacionLineId      String?
@@ -157,6 +170,7 @@ model Order {
   @@index([clientId])
   @@index([queuePosition])
   @@index([ayudanteId])
+  @@index([operadorFisicoId])
 }
 
 model Label {

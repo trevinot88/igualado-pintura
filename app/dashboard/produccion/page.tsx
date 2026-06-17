@@ -36,6 +36,13 @@ interface IgualadorOption {
   email: string;
 }
 
+/** 🆕 Tipo para el catálogo de operadores físicos */
+interface OperadorFisico {
+  id: string;
+  nombre: string;
+  activo: boolean;
+}
+
 export default function ProduccionPage() {
   const { data: session } = useSession();
   const user = session?.user as { id?: string; role?: string; name?: string } | undefined;
@@ -53,6 +60,13 @@ export default function ProduccionPage() {
   const [showTurnoConfirm, setShowTurnoConfirm] = useState(false);
   const [pendingTakeOrder, setPendingTakeOrder] = useState<QueueOrder | null>(null);
   const [lastEqualizerName, setLastEqualizerName] = useState("");
+
+  // 🆕 Estados para el modal de selección de operador físico
+  const [showOperadorModal, setShowOperadorModal] = useState(false);
+  const [operadoresFisicos, setOperadoresFisicos] = useState<OperadorFisico[]>([]);
+  const [selectedOperadorId, setSelectedOperadorId] = useState("");
+  const [pendingOperadorOrder, setPendingOperadorOrder] = useState<QueueOrder | null>(null);
+  const [startingProduction, setStartingProduction] = useState(false);
 
   const fetchQueue = useCallback(() => {
     fetch("/api/produccion")
@@ -80,9 +94,23 @@ export default function ProduccionPage() {
       .then((r) => r.json())
       .then((data) => setIgualadores(Array.isArray(data) ? data : []));
 
+    // 🆕 Cargar operadores físicos activos
+    fetchOperadoresFisicos();
+
     const interval = setInterval(fetchQueue, 10000); // Poll every 10s
     return () => clearInterval(interval);
   }, [fetchQueue]);
+
+  /** 🆕 Carga los operadores físicos activos desde el catálogo */
+  async function fetchOperadoresFisicos() {
+    try {
+      const res = await fetch("/api/igualadores?activos=true");
+      const data = await res.json();
+      setOperadoresFisicos(Array.isArray(data) ? data : []);
+    } catch {
+      console.error("Error fetching operadores físicos");
+    }
+  }
 
   async function handleMarkDelivered(orderId: string) {
     const res = await fetch(`/api/pedidos/${orderId}/estado`, {
@@ -110,53 +138,72 @@ export default function ProduccionPage() {
     }
   }
 
-  async function doTakeOrder(orderId: string) {
-    const res = await fetch(`/api/pedidos/${orderId}/estado`, {
-      method: "PATCH",
+  /** 🆕 Ejecuta el start vía API con operadorFisicoId */
+  async function doTakeOrder(orderId: string, operadorFisicoId: string) {
+    setStartingProduction(true);
+    const res = await fetch("/api/produccion/start", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "EN_PROCESO" }),
+      body: JSON.stringify({ orderId, operadorFisicoId }),
     });
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       alert(err.error || "No se pudo tomar el pedido");
+      setStartingProduction(false);
       return;
     }
+    setStartingProduction(false);
     fetchQueue();
   }
 
-  /** Al hacer clic en "Tomar Siguiente", verifica si es el turno de este igualador */
-  async function handleTakeOrder(order: QueueOrder) {
-    // Si es ADMIN, no preguntar
-    if (role === "ADMIN") {
-      doTakeOrder(order.id);
-      return;
-    }
-
-    // Caso 1: El pedido en cola está asignado a otro igualador
-    if (order.igualadorId && order.igualadorId !== userId) {
-      setLastEqualizerName(order.igualador?.name || "otro igualador");
-      setPendingTakeOrder(order);
-      setShowTurnoConfirm(true);
-      return;
-    }
-
-    // Caso 2: Buscar el último EN_PROCESO que fue tomado por OTRO igualador
-    const enProceso = queue.filter((o) => o.status === "EN_PROCESO");
-    const lastTaken = enProceso[enProceso.length - 1];
-
-    if (lastTaken && lastTaken.igualadorId && lastTaken.igualadorId !== userId) {
-      setLastEqualizerName(lastTaken.igualador?.name || "otro igualador");
-      setPendingTakeOrder(order);
-      setShowTurnoConfirm(true);
-    } else {
-      // Es su turno o no hay nadie en proceso - tomar directo
-      doTakeOrder(order.id);
-    }
+  /** 🆕 Al hacer clic en "Tomar Siguiente": abre el modal de selección de operador */
+  function handleTakeOrder(order: QueueOrder) {
+    // Guardar el pedido pendiente y abrir modal de selección de operador físico
+    setPendingOperadorOrder(order);
+    setSelectedOperadorId("");
+    setShowOperadorModal(true);
   }
 
-  function confirmTakeOrder() {
-    if (pendingTakeOrder) {
-      doTakeOrder(pendingTakeOrder.id);
+  /** 🆕 Confirmar operador y proceder */
+  async function confirmOperadorYTomar() {
+    if (!pendingOperadorOrder || !selectedOperadorId) return;
+
+    // Si es ADMIN y quiere override de turno, manejarlo
+    if (role === "ADMIN") {
+      await doTakeOrder(pendingOperadorOrder.id, selectedOperadorId);
+      setShowOperadorModal(false);
+      setPendingOperadorOrder(null);
+      return;
+    }
+
+    // Verificar turno (lógica existente)
+    if (pendingOperadorOrder.igualadorId && pendingOperadorOrder.igualadorId !== userId) {
+      setLastEqualizerName(pendingOperadorOrder.igualador?.name || "otro igualador");
+      setPendingTakeOrder(pendingOperadorOrder);
+      // Cerrar modal de operador, abrir modal de confirmación de turno
+      setShowOperadorModal(false);
+      return;
+    }
+
+    const enProceso = queue.filter((o) => o.status === "EN_PROCESO");
+    const lastTaken = enProceso[enProceso.length - 1];
+    if (lastTaken && lastTaken.igualadorId && lastTaken.igualadorId !== userId) {
+      setLastEqualizerName(lastTaken.igualador?.name || "otro igualador");
+      setPendingTakeOrder(pendingOperadorOrder);
+      setShowOperadorModal(false);
+      return;
+    }
+
+    // Es su turno — tomar directo
+    await doTakeOrder(pendingOperadorOrder.id, selectedOperadorId);
+    setShowOperadorModal(false);
+    setPendingOperadorOrder(null);
+  }
+
+  async function confirmTakeOrder() {
+    if (pendingTakeOrder && selectedOperadorId) {
+      await doTakeOrder(pendingTakeOrder.id, selectedOperadorId);
     }
     setShowTurnoConfirm(false);
     setPendingTakeOrder(null);
@@ -408,6 +455,65 @@ export default function ProduccionPage() {
           </div>
         </div>
       </div>
+
+      {/* 🆕 Modal: Selección de Operador Físico */}
+      <Dialog open={showOperadorModal} onOpenChange={setShowOperadorModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-blue-600" />
+              ¿Quién está procesando este pedido?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {pendingOperadorOrder && (
+              <p className="text-sm text-slate-600">
+                Pedido: <span className="font-semibold">{pendingOperadorOrder.folio}</span> — {pendingOperadorOrder.colorName}
+              </p>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Selecciona el operador físico *</label>
+              {operadoresFisicos.length === 0 ? (
+                <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded">
+                  No hay operadores físicos activos. Un administrador debe agregarlos en la sección de Usuarios.
+                </p>
+              ) : (
+                <select
+                  className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                  value={selectedOperadorId}
+                  onChange={(e) => setSelectedOperadorId(e.target.value)}
+                >
+                  <option value="">-- Seleccionar --</option>
+                  {operadoresFisicos.map((op) => (
+                    <option key={op.id} value={op.id}>
+                      {op.nombre}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowOperadorModal(false);
+                  setPendingOperadorOrder(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={confirmOperadorYTomar}
+                disabled={!selectedOperadorId || startingProduction}
+              >
+                {startingProduction ? "Iniciando..." : "Confirmar y Tomar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de confirmación de turno */}
       <Dialog open={showTurnoConfirm} onOpenChange={setShowTurnoConfirm}>

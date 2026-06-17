@@ -21,6 +21,7 @@ export async function GET() {
       client: { select: { name: true } },
       seller: { select: { name: true } },
       igualador: { select: { name: true } },
+      operadorFisico: { select: { id: true, nombre: true } },
       colorGroup: { select: { name: true } },
     },
     orderBy: { queuePosition: "asc" },
@@ -37,6 +38,7 @@ export async function GET() {
     include: {
       client: { select: { name: true } },
       igualador: { select: { name: true } },
+      operadorFisico: { select: { id: true, nombre: true } },
       colorGroup: { select: { name: true } },
     },
     orderBy: { completedAt: "desc" },

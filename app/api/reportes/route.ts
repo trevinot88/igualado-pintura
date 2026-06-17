@@ -36,8 +36,8 @@ export async function GET(req: Request) {
     todayCompleted,
     todayWithHelp,
     ordersBySource,
-    igualadorSolo,
-    igualadorConAyuda,
+    operadorSolo,
+    operadorConAyuda,
     sellerVolume,
     crossAssistance,
     litersByGroupData,
@@ -82,12 +82,13 @@ export async function GET(req: Request) {
       where: { status: { not: "CANCELADO" }, ...rangeWhere },
     }),
 
-    // Chart stacked – igualador SOLO (sin ayudante)
+    // ⭐ Chart stacked – operador FÍSICO SOLO (sin ayudante)
+    // Group by operadorFisicoId for real per-person metrics
     prisma.order.groupBy({
-      by: ["igualadorId"],
+      by: ["operadorFisicoId"],
       _count: true,
       where: {
-        igualadorId: { not: null },
+        operadorFisicoId: { not: null },
         ayudanteId: null,
         completedAt: { not: null },
         status: { not: "CANCELADO" },
@@ -95,12 +96,12 @@ export async function GET(req: Request) {
       },
     }),
 
-    // Chart stacked – igualador CON ayuda
+    // ⭐ Chart stacked – operador FÍSICO CON ayuda
     prisma.order.groupBy({
-      by: ["igualadorId"],
+      by: ["operadorFisicoId"],
       _count: true,
       where: {
-        igualadorId: { not: null },
+        operadorFisicoId: { not: null },
         ayudanteId: { not: null },
         completedAt: { not: null },
         status: { not: "CANCELADO" },
@@ -149,19 +150,31 @@ export async function GET(req: Request) {
     }),
   ]);
 
-  // Recopilar todos los user IDs que necesitamos enriquecer
-  const igualadorIds = Array.from(
+  // ── Enrich operador FÍSICO names ──
+  const operadorFisicoIds = Array.from(
     new Set([
-      ...igualadorSolo.map((i) => i.igualadorId!),
-      ...igualadorConAyuda.map((i) => i.igualadorId!),
-      ...crossAssistance.map((i) => i.igualadorId!),
-      ...crossAssistance.filter((i) => i.ayudanteId).map((i) => i.ayudanteId!),
+      ...operadorSolo.map((i) => i.operadorFisicoId!).filter(Boolean),
+      ...operadorConAyuda.map((i) => i.operadorFisicoId!).filter(Boolean),
     ])
   );
-  const sellerIds = sellerVolume
-    .filter((s) => s.sellerId)
-    .map((s) => s.sellerId!);
-  const allUserIds = Array.from(new Set([...igualadorIds, ...sellerIds]));
+
+  // Fetch names from the Igualador table
+  const igualadores = await prisma.igualador.findMany({
+    where: { id: { in: operadorFisicoIds } },
+    select: { id: true, nombre: true },
+  });
+  const igualadorNombreMap = Object.fromEntries(
+    igualadores.map((ig) => [ig.id, ig.nombre])
+  );
+
+  // ── Enrich system user names (for cross-assistance + sellers) ──
+  const allUserIds = Array.from(
+    new Set([
+      ...crossAssistance.map((i) => i.igualadorId!).filter(Boolean),
+      ...crossAssistance.filter((i) => i.ayudanteId).map((i) => i.ayudanteId!).filter(Boolean),
+      ...sellerVolume.filter((s) => s.sellerId).map((s) => s.sellerId!).filter(Boolean),
+    ])
+  );
 
   const users = await prisma.user.findMany({
     where: { id: { in: allUserIds } },
@@ -169,23 +182,22 @@ export async function GET(req: Request) {
   });
   const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]));
 
-  // Construir datos apilados por igualador
+  // ── Build stacked bar data by operadorFISICO ──
   const soloMap: Record<string, number> = {};
-  igualadorSolo.forEach((i) => {
-    if (i.igualadorId) soloMap[i.igualadorId] = i._count;
+  operadorSolo.forEach((i) => {
+    if (i.operadorFisicoId) soloMap[i.operadorFisicoId] = i._count;
   });
   const ayudaMap: Record<string, number> = {};
-  igualadorConAyuda.forEach((i) => {
-    if (i.igualadorId) ayudaMap[i.igualadorId] = i._count;
+  operadorConAyuda.forEach((i) => {
+    if (i.operadorFisicoId) ayudaMap[i.operadorFisicoId] = i._count;
   });
-  const allIgIds = Array.from(
-    new Set([
-      ...igualadorSolo.map((i) => i.igualadorId!),
-      ...igualadorConAyuda.map((i) => i.igualadorId!),
-    ])
-  ).filter(Boolean);
-  const igualadorStacked = allIgIds.map((id) => ({
-    name: userMap[id] || "Desconocido",
+
+  const allOperadorIds = Array.from(
+    new Set([...Object.keys(soloMap), ...Object.keys(ayudaMap)])
+  );
+
+  const igualadorStacked = allOperadorIds.map((id) => ({
+    name: igualadorNombreMap[id] || "Desconocido",
     solo: soloMap[id] || 0,
     conAyuda: ayudaMap[id] || 0,
   }));
@@ -196,16 +208,14 @@ export async function GET(req: Request) {
       : 0;
 
   // Litros por grupo de color - calcular suma de liters por grupo
-  const litersByGroup = litersByGroupData.map((g) => ({
-    groupName: g.name,
-    totalLiters: g.orders.reduce((sum, o) => sum + o.liters, 0),
-  })).filter((g) => g.totalLiters > 0);
+  const litersByGroup = litersByGroupData
+    .map((g) => ({
+      groupName: g.name,
+      totalLiters: g.orders.reduce((sum, o) => sum + o.liters, 0),
+    }))
+    .filter((g) => g.totalLiters > 0);
 
-  // Litros por color exacto - enriquecer con nombre del grupo
-  const colorGroupMap = Object.fromEntries(
-    litersByGroupData.map((g) => [g.name, g.name])
-  );
-  // Get color group names by fetching them
+  // Get color group names
   let colorGroupNames: Record<string, string> = {};
   try {
     const colorGroups = await prisma.colorGroup.findMany({
