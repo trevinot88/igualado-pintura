@@ -131,6 +131,17 @@ model Igualador {
   orders    Order[]  @relation("OperadorFisicoOrders")
 }
 
+/// 🆕 Tabla independiente para los vendedores físicos
+/// (personas reales del equipo de ventas, sin cuentas de sistema).
+model Vendedor {
+  id        String   @id @default(cuid())
+  nombre    String
+  activo    Boolean  @default(true)
+  creadoAt  DateTime @default(now())
+  actualizadoAt DateTime @updatedAt
+  orders    Order[]  @relation("VendedorFisicoOrders")
+}
+
 model Order {
   id                    String          @id @default(cuid())
   folio                 String          @unique
@@ -144,6 +155,8 @@ model Order {
   ayudante              User?           @relation("AyudanteOrders", fields: [ayudanteId], references: [id])
   operadorFisicoId      String?
   operadorFisico        Igualador?      @relation("OperadorFisicoOrders", fields: [operadorFisicoId], references: [id])
+  vendedorId            String?
+  vendedor              Vendedor?       @relation("VendedorFisicoOrders", fields: [vendedorId], references: [id])
   colorGroupId          String
   colorGroup            ColorGroup      @relation(fields: [colorGroupId], references: [id])
   igualacionLineId      String?

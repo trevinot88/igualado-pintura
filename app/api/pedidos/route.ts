@@ -17,6 +17,7 @@ const createOrderSchema = z.object({
   liters: z.number().positive(),
   source: z.enum(["MOSTRADOR", "VENTAS", "REDES_SOCIALES"]).optional(),
   sellerId: z.string().optional(),
+  vendedorId: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -93,6 +94,7 @@ export async function GET(req: Request) {
       seller: { select: { name: true } },
       igualador: { select: { name: true } },
       ayudante: { select: { name: true } },
+      vendedor: { select: { nombre: true } },
       colorGroup: { select: { name: true } },
       igualacionLine: { select: { name: true, code: true } },
     },
@@ -114,6 +116,7 @@ export async function POST(req: Request) {
   const data = createOrderSchema.parse(body);
 
   let effectiveSellerId = user.id;
+  let effectiveVendedorId: string | null = null;
   if (data.source === "VENTAS") {
     if (!data.sellerId) {
       return NextResponse.json({ error: "Debes seleccionar un vendedor para canal Ventas" }, { status: 400 });
@@ -133,6 +136,18 @@ export async function POST(req: Request) {
     }
 
     effectiveSellerId = seller.id;
+
+    // Validar vendedorId físico si se proporcionó
+    if (data.vendedorId) {
+      const vendedorFisico = await prisma.vendedor.findFirst({
+        where: { id: data.vendedorId, activo: true },
+        select: { id: true },
+      });
+      if (!vendedorFisico) {
+        return NextResponse.json({ error: "El vendedor físico seleccionado no es válido" }, { status: 400 });
+      }
+      effectiveVendedorId = vendedorFisico.id;
+    }
   }
 
   // Siempre asignar igualador vía round-robin (Pedro o Enrique)
@@ -157,6 +172,7 @@ export async function POST(req: Request) {
       folio,
       clientId: data.clientId,
       sellerId: effectiveSellerId,
+      vendedorId: effectiveVendedorId,
       igualadorId: assignedIgualadorId,
       colorGroupId: data.colorGroupId,
       igualacionLineId: data.igualacionLineId || null,

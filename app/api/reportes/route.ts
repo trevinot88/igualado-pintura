@@ -167,6 +167,22 @@ export async function GET(req: Request) {
     igualadores.map((ig) => [ig.id, ig.nombre])
   );
 
+  // ── Enrich Vendedor Físico names for seller volume ──
+  const sellerVendedorIds = sellerVolume
+    .filter((s) => s.sellerId)
+    .map((s) => s.sellerId!)
+    .filter(Boolean);
+
+  const vendedoresFisicos = sellerVendedorIds.length > 0
+    ? await prisma.vendedor.findMany({
+        where: { id: { in: sellerVendedorIds } },
+        select: { id: true, nombre: true },
+      })
+    : [];
+  const vendedorFisicoMap = Object.fromEntries(
+    vendedoresFisicos.map((v) => [v.id, v.nombre])
+  );
+
   // ── Enrich system user names (for cross-assistance + sellers) ──
   const allUserIds = Array.from(
     new Set([
@@ -181,6 +197,15 @@ export async function GET(req: Request) {
     select: { id: true, name: true },
   });
   const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]));
+
+  // Separate sellers into: those with Vendedor.nombre vs system User.name
+  const resolvedSellerNames = sellerVolume
+    .filter((s) => s.sellerId)
+    .map((s) => ({
+      originalId: s.sellerId!,
+      name: vendedorFisicoMap[s.sellerId!] || userMap[s.sellerId!] || "Sin Vendedor Asignado",
+      count: s._count,
+    }));
 
   // ── Build stacked bar data by operadorFISICO ──
   const soloMap: Record<string, number> = {};

@@ -47,6 +47,7 @@ interface OrderDetail {
   cancelledAt: string | null;
   client: { id: string; name: string; email: string | null; phone: string | null; company: string | null; allowCredit: boolean };
   seller: { id: string; name: string; email: string };
+  vendedor: { id: string; nombre: string } | null;
   igualador: { id: string; name: string; email: string } | null;
   colorGroup: { name: string };
   igualacionLine: { id: string; code: string; name: string } | null;

@@ -28,6 +28,7 @@ export async function GET(
     include: {
       client: true,
       seller: { select: { id: true, name: true, email: true } },
+      vendedor: { select: { id: true, nombre: true } },
       igualador: { select: { id: true, name: true, email: true } },
       colorGroup: { select: { id: true, name: true } },
       igualacionLine: { select: { id: true, code: true, name: true } },

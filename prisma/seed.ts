@@ -544,15 +544,60 @@ async function main() {
     });
   }
 
+  // ─── Nuevo Admin: david.lopez@dyrlo.com ─────────────────
+  // Usamos upsert para ser seguros en re-ejecuciones del seed
+  const davidAdmin = await prisma.user.upsert({
+    where: { email: "david.lopez@dyrlo.com" },
+    update: {
+      name: "David López",
+      hashedPassword: hashPassword("dyrlo2026"),
+      role: "ADMIN",
+      active: true,
+      locationId: location.id,
+    },
+    create: {
+      name: "David López",
+      email: "david.lopez@dyrlo.com",
+      hashedPassword: hashPassword("dyrlo2026"),
+      role: "ADMIN",
+      active: true,
+      locationId: location.id,
+    },
+  });
+
+  // ─── Catálogo de Vendedores Físicos ─────────────────────
+  // 6 nombres sin cuentas de sistema, usando upsert con IDs fijos
+  // para evitar duplicados al re-ejecutar el seed
+  const vendedoresFisicos = [
+    { id: "vendedor-francis", nombre: "Francis" },
+    { id: "vendedor-padilla", nombre: "Padilla" },
+    { id: "vendedor-garcia",   nombre: "García" },
+    { id: "vendedor-bodega",   nombre: "Bodega" },
+    { id: "vendedor-eduardo",  nombre: "Eduardo" },
+    { id: "vendedor-tienda",   nombre: "Tienda" },
+  ];
+
+  for (const v of vendedoresFisicos) {
+    await prisma.vendedor.upsert({
+      where: { id: v.id },
+      update: { nombre: v.nombre, activo: true },
+      create: { id: v.id, nombre: v.nombre, activo: true },
+    });
+  }
+
   console.log("✅ Seed completed!");
   console.log("\n📋 Usuarios creados:");
   console.log("  - admin@dyrlo.com / admin123 (ADMIN)");
+  console.log("  - david.lopez@dyrlo.com / dyrlo2026 (ADMIN)");
   console.log("  - facturacion@dyrlo.com / facturacion123 (FACTURACION)");
   console.log("  - igualador@dyrlo.com / dyrlo2026 (IGUALADOR)");
   console.log("  - vendedor@dyrlo.com / vendedor123 (VENDEDOR_READONLY)");
   console.log(`\n📦 ${sampleOrders.length} pedidos de ejemplo creados`);
   console.log(`🎨 5 grupos de color creados`);
   console.log(`🔧 266 códigos de igualación reales cargados`);
+  console.log(`👤 1 admin adicional: david.lopez@dyrlo.com`);
+  console.log(`🏪 ${vendedoresFisicos.length} vendedores físicos registrados`);
+
 }
 
 main()

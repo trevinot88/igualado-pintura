@@ -33,6 +33,12 @@ interface Seller {
   email: string;
 }
 
+interface VendedorFisico {
+  id: string;
+  nombre: string;
+  activo: boolean;
+}
+
 interface IgualacionLine {
   id: string;
   code: string;
@@ -52,6 +58,7 @@ export default function NuevoPedidoPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [groups, setGroups] = useState<ColorGroup[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [vendedoresFisicos, setVendedoresFisicos] = useState<VendedorFisico[]>([]);
   const [lines, setLines] = useState<IgualacionLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
