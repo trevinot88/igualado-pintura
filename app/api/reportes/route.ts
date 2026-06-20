@@ -25,15 +25,11 @@ export async function GET(req: Request) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
 
+  // `from`/`to` llegan como instantes ISO precisos (hora local del cliente → UTC),
+  // así que se usan tal cual; sin parches de zona horaria.
   const dateFilter: Record<string, unknown> = {};
   if (from) dateFilter.gte = new Date(from);
-  if (to) {
-    // `to` llega como "YYYY-MM-DD"; incluir el día completo (hasta las 23:59:59.999)
-    // para no excluir los pedidos creados hoy mismo.
-    const toDate = new Date(to);
-    toDate.setHours(23, 59, 59, 999);
-    dateFilter.lte = toDate;
-  }
+  if (to) dateFilter.lte = new Date(to);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

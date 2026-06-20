@@ -41,28 +41,32 @@ const PERIOD_LABELS: Record<Period, string> = {
 
 function getPeriodDates(period: Period): { from: string; to: string } {
   const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const fmt = (d: Date) =>
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const today = fmt(now);
+  // Instantes ISO precisos en hora LOCAL del navegador → evita el desfase
+  // de zona horaria (un "2026-06-20" suelto se interpretaba como medianoche UTC).
+  const startOfDay = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).toISOString();
+  // Fin del día de HOY: garantiza que los pedidos creados hoy siempre cuenten.
+  const to = new Date(
+    now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999
+  ).toISOString();
 
   switch (period) {
     case "dia":
-      return { from: today, to: today };
+      return { from: startOfDay(now), to };
     case "semana": {
       const day = now.getDay(); // 0=Dom, 1=Lun…
       const diff = day === 0 ? -6 : 1 - day; // lunes de esta semana
       const start = new Date(now);
       start.setDate(now.getDate() + diff);
-      return { from: fmt(start), to: today };
+      return { from: startOfDay(start), to };
     }
     case "mes": {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { from: fmt(start), to: today };
+      return { from: startOfDay(start), to };
     }
     case "anio": {
       const start = new Date(now.getFullYear(), 0, 1);
-      return { from: fmt(start), to: today };
+      return { from: startOfDay(start), to };
     }
   }
 }
