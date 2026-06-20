@@ -26,13 +26,6 @@ interface ColorGroup {
   name: string;
 }
 
-interface Seller {
-  id: string;
-  name: string;
-  role: "ADMIN" | "VENDEDOR_READONLY";
-  email: string;
-}
-
 interface VendedorFisico {
   id: string;
   nombre: string;
@@ -57,7 +50,6 @@ export default function NuevoPedidoPage() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [groups, setGroups] = useState<ColorGroup[]>([]);
-  const [sellers, setSellers] = useState<Seller[]>([]);
   const [vendedoresFisicos, setVendedoresFisicos] = useState<VendedorFisico[]>([]);
   const [lines, setLines] = useState<IgualacionLine[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,7 +60,7 @@ export default function NuevoPedidoPage() {
   const [clientId, setClientId] = useState("");
   const [colorGroupId, setColorGroupId] = useState("");
   const [source, setSource] = useState("MOSTRADOR");
-  const [sellerId, setSellerId] = useState("");
+  const [vendedorId, setVendedorId] = useState("");
   const [notes, setNotes] = useState("");
 
   // Order items (multiple products)
@@ -85,7 +77,7 @@ export default function NuevoPedidoPage() {
     fetch("/api/clientes").then((r) => r.json()).then(setClients);
     fetch("/api/color-groups?active=true").then((r) => r.json()).then(setGroups);
     fetch("/api/igualacion-lines?active=true").then((r) => r.json()).then(setLines);
-    fetch("/api/usuarios/sellers").then((r) => r.json()).then(setSellers);
+    fetch("/api/vendedores").then((r) => r.json()).then(setVendedoresFisicos);
   }, []);
 
   async function handleCreateClient() {
@@ -157,7 +149,7 @@ export default function NuevoPedidoPage() {
             colorName: item.colorName,
             liters: item.liters,
             source,
-            sellerId: source === "VENTAS" ? sellerId : undefined,
+            vendedorId: source === "VENTAS" ? vendedorId : undefined,
             notes,
           }),
         })
@@ -365,7 +357,7 @@ export default function NuevoPedidoPage() {
                   type="button"
                   onClick={() => {
                     setSource(s.value);
-                    if (s.value !== "VENTAS") setSellerId("");
+                    if (s.value !== "VENTAS") setVendedorId("");
                   }}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                     source === s.value
@@ -384,14 +376,14 @@ export default function NuevoPedidoPage() {
               <label className="text-sm font-medium">Vendedor *</label>
               <select
                 className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-                value={sellerId}
-                onChange={(e) => setSellerId(e.target.value)}
+                value={vendedorId}
+                onChange={(e) => setVendedorId(e.target.value)}
                 required
               >
                 <option value="">Selecciona quién hizo la venta</option>
-                {sellers.map((seller) => (
-                  <option key={seller.id} value={seller.id}>
-                    {seller.name} ({seller.role === "ADMIN" ? "Admin" : "Vendedor"})
+                {vendedoresFisicos.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nombre}
                   </option>
                 ))}
               </select>
@@ -417,7 +409,7 @@ export default function NuevoPedidoPage() {
             loading ||
             !clientId ||
             !colorGroupId ||
-            (source === "VENTAS" && !sellerId) ||
+            (source === "VENTAS" && !vendedorId) ||
             items.some((item) => !item.colorName || !item.liters)
           }
         >

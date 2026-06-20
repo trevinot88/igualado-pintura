@@ -109,11 +109,11 @@ export async function GET(req: Request) {
       },
     }),
 
-    // Chart: Volumen por Vendedor
+    // Chart: Volumen por Vendedor (físico)
     prisma.order.groupBy({
-      by: ["sellerId"],
+      by: ["vendedorId"],
       _count: true,
-      where: { status: { not: "CANCELADO" }, ...rangeWhere },
+      where: { vendedorId: { not: null }, status: { not: "CANCELADO" }, ...rangeWhere },
     }),
 
     // Tabla detalle: asistencia cruzada
@@ -169,9 +169,8 @@ export async function GET(req: Request) {
 
   // ── Enrich Vendedor Físico names for seller volume ──
   const sellerVendedorIds = sellerVolume
-    .filter((s) => s.sellerId)
-    .map((s) => s.sellerId!)
-    .filter(Boolean);
+    .map((s) => s.vendedorId)
+    .filter((id): id is string => Boolean(id));
 
   const vendedoresFisicos = sellerVendedorIds.length > 0
     ? await prisma.vendedor.findMany({
@@ -183,12 +182,11 @@ export async function GET(req: Request) {
     vendedoresFisicos.map((v) => [v.id, v.nombre])
   );
 
-  // ── Enrich system user names (for cross-assistance + sellers) ──
+  // ── Enrich system user names (for cross-assistance) ──
   const allUserIds = Array.from(
     new Set([
       ...crossAssistance.map((i) => i.igualadorId!).filter(Boolean),
       ...crossAssistance.filter((i) => i.ayudanteId).map((i) => i.ayudanteId!).filter(Boolean),
-      ...sellerVolume.filter((s) => s.sellerId).map((s) => s.sellerId!).filter(Boolean),
     ])
   );
 
@@ -197,15 +195,6 @@ export async function GET(req: Request) {
     select: { id: true, name: true },
   });
   const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]));
-
-  // Separate sellers into: those with Vendedor.nombre vs system User.name
-  const resolvedSellerNames = sellerVolume
-    .filter((s) => s.sellerId)
-    .map((s) => ({
-      originalId: s.sellerId!,
-      name: vendedorFisicoMap[s.sellerId!] || userMap[s.sellerId!] || "Sin Vendedor Asignado",
-      count: s._count,
-    }));
 
   // ── Build stacked bar data by operadorFISICO ──
   const soloMap: Record<string, number> = {};
@@ -274,9 +263,9 @@ export async function GET(req: Request) {
       })),
       igualadorStacked,
       sellerVolume: sellerVolume
-        .filter((s) => s.sellerId)
+        .filter((s) => s.vendedorId)
         .map((s) => ({
-          name: userMap[s.sellerId!] || "Desconocido",
+          name: vendedorFisicoMap[s.vendedorId!] || "Desconocido",
           count: s._count,
         }))
         .sort((a, b) => b.count - a.count),

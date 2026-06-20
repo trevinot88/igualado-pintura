@@ -571,10 +571,10 @@ async function main() {
   const vendedoresFisicos = [
     { id: "vendedor-francis", nombre: "Francis" },
     { id: "vendedor-padilla", nombre: "Padilla" },
-    { id: "vendedor-garcia",   nombre: "García" },
-    { id: "vendedor-bodega",   nombre: "Bodega" },
-    { id: "vendedor-eduardo",  nombre: "Eduardo" },
-    { id: "vendedor-tienda",   nombre: "Tienda" },
+    { id: "vendedor-garcia",  nombre: "García" },
+    { id: "vendedor-bodega",  nombre: "Bodega" },
+    { id: "vendedor-eduardo", nombre: "Eduardo" },
+    { id: "vendedor-tienda",  nombre: "Tienda" },
   ];
 
   for (const v of vendedoresFisicos) {
@@ -584,6 +584,13 @@ async function main() {
       create: { id: v.id, nombre: v.nombre, activo: true },
     });
   }
+
+  // Desactivar cualquier vendedor que ya no esté en el catálogo oficial
+  // (no se borran para preservar referencias históricas en pedidos).
+  await prisma.vendedor.updateMany({
+    where: { id: { notIn: vendedoresFisicos.map((v) => v.id) } },
+    data: { activo: false },
+  });
 
   console.log("✅ Seed completed!");
   console.log("\n📋 Usuarios creados:");

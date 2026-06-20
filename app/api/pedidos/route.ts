@@ -115,39 +115,23 @@ export async function POST(req: Request) {
   const body = await req.json();
   const data = createOrderSchema.parse(body);
 
-  let effectiveSellerId = user.id;
+  // sellerId = cuenta de sistema que captura (siempre el usuario actual).
+  // vendedorId = vendedor físico que hizo la venta (requerido en canal Ventas).
+  const effectiveSellerId = user.id;
   let effectiveVendedorId: string | null = null;
   if (data.source === "VENTAS") {
-    if (!data.sellerId) {
+    if (!data.vendedorId) {
       return NextResponse.json({ error: "Debes seleccionar un vendedor para canal Ventas" }, { status: 400 });
     }
 
-    const seller = await prisma.user.findFirst({
-      where: {
-        id: data.sellerId,
-        active: true,
-        role: { in: ["ADMIN", "VENDEDOR_READONLY"] },
-      },
+    const vendedorFisico = await prisma.vendedor.findFirst({
+      where: { id: data.vendedorId, activo: true },
       select: { id: true },
     });
-
-    if (!seller) {
+    if (!vendedorFisico) {
       return NextResponse.json({ error: "El vendedor seleccionado no es válido" }, { status: 400 });
     }
-
-    effectiveSellerId = seller.id;
-
-    // Validar vendedorId físico si se proporcionó
-    if (data.vendedorId) {
-      const vendedorFisico = await prisma.vendedor.findFirst({
-        where: { id: data.vendedorId, activo: true },
-        select: { id: true },
-      });
-      if (!vendedorFisico) {
-        return NextResponse.json({ error: "El vendedor físico seleccionado no es válido" }, { status: 400 });
-      }
-      effectiveVendedorId = vendedorFisico.id;
-    }
+    effectiveVendedorId = vendedorFisico.id;
   }
 
   // Siempre asignar igualador vía round-robin (Pedro o Enrique)
