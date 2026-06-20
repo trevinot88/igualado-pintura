@@ -78,7 +78,7 @@ interface DashboardData {
   charts: {
     ordersBySource: { source: string; count: number }[];
     igualadorStacked: { name: string; solo: number; conAyuda: number }[];
-    sellerVolume: { name: string; count: number }[];
+    sellerVolume: { name: string; count: number; liters: number }[];
     crossAssistance: { principal: string; helper: string; count: number }[];
     litersByGroup: { groupName: string; totalLiters: number }[];
     litersByColor: { colorName: string; groupName: string; totalLiters: number }[];
@@ -318,7 +318,7 @@ export default function DashboardPage() {
       <Card>
         <CardTitle className="px-6 pt-6 pb-1">Volumen por Vendedor</CardTitle>
         <p className="px-6 text-xs text-slate-400 mb-2">
-          Cantidad de pedidos generados por persona
+          Pedidos y litros vendidos por persona
         </p>
         <CardContent className="h-[260px] p-4">
           {charts.sellerVolume.length > 0 ? (
@@ -329,18 +329,31 @@ export default function DashboardPage() {
                 margin={{ left: 90, right: 30, top: 4, bottom: 4 }}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
+                <XAxis type="number" tick={{ fontSize: 12 }} />
                 <YAxis
                   type="category"
                   dataKey="name"
                   tick={{ fontSize: 13 }}
                   width={90}
                 />
-                <Tooltip formatter={(v) => [`${v} pedidos`, "Volumen"]} />
+                <Tooltip
+                  formatter={(v, name) =>
+                    name === "Litros"
+                      ? [`${Number(v).toFixed(1)} L`, "Litros"]
+                      : [`${v} pedidos`, "Pedidos"]
+                  }
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar
                   dataKey="count"
                   name="Pedidos"
                   fill="#3b82f6"
+                  radius={[0, 4, 4, 0]}
+                />
+                <Bar
+                  dataKey="liters"
+                  name="Litros"
+                  fill="#10b981"
                   radius={[0, 4, 4, 0]}
                 />
               </BarChart>

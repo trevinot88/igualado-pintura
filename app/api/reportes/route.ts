@@ -7,6 +7,10 @@ import { DEMO_REPORTES } from "@/lib/demo-data";
 const DEMO_MODE =
   process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 
+// Siempre datos frescos: el dashboard debe reflejar pedidos en tiempo real.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: Request) {
   const session = await auth();
   try {
@@ -23,7 +27,13 @@ export async function GET(req: Request) {
 
   const dateFilter: Record<string, unknown> = {};
   if (from) dateFilter.gte = new Date(from);
-  if (to) dateFilter.lte = new Date(to);
+  if (to) {
+    // `to` llega como "YYYY-MM-DD"; incluir el día completo (hasta las 23:59:59.999)
+    // para no excluir los pedidos creados hoy mismo.
+    const toDate = new Date(to);
+    toDate.setHours(23, 59, 59, 999);
+    dateFilter.lte = toDate;
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -109,10 +119,11 @@ export async function GET(req: Request) {
       },
     }),
 
-    // Chart: Volumen por Vendedor (físico)
+    // Chart: Volumen por Vendedor (físico) — pedidos y litros
     prisma.order.groupBy({
       by: ["vendedorId"],
       _count: true,
+      _sum: { liters: true },
       where: { vendedorId: { not: null }, status: { not: "CANCELADO" }, ...rangeWhere },
     }),
 
@@ -267,6 +278,7 @@ export async function GET(req: Request) {
         .map((s) => ({
           name: vendedorFisicoMap[s.vendedorId!] || "Desconocido",
           count: s._count,
+          liters: s._sum.liters || 0,
         }))
         .sort((a, b) => b.count - a.count),
       crossAssistance: crossAssistance
