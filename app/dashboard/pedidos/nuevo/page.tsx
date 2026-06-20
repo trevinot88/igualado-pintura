@@ -77,7 +77,9 @@ export default function NuevoPedidoPage() {
     fetch("/api/clientes").then((r) => r.json()).then(setClients);
     fetch("/api/color-groups?active=true").then((r) => r.json()).then(setGroups);
     fetch("/api/igualacion-lines?active=true").then((r) => r.json()).then(setLines);
-    fetch("/api/vendedores").then((r) => r.json()).then(setVendedoresFisicos);
+    fetch("/api/vendedores")
+      .then((r) => r.json())
+      .then((d) => setVendedoresFisicos(Array.isArray(d) ? d : []));
   }, []);
 
   async function handleCreateClient() {
