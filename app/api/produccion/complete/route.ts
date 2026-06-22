@@ -56,35 +56,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // Igualador can only complete orders assigned to them (admin can override)
-  if (user.role === "IGUALADOR" && order.igualadorId && order.igualadorId !== user.id) {
-    return NextResponse.json(
-      { error: "Solo el igualador asignado puede completar este pedido" },
-      { status: 403 }
-    );
-  }
-
-  // FIFO VALIDATION: Non-admin users cannot complete an order if an older order is still EN_PROCESO
-  if (user.role !== "ADMIN") {
-    const olderInProcess = await prisma.order.findFirst({
-      where: {
-        status: "EN_PROCESO",
-        id: { not: orderId },
-        queuePosition: { lt: order.queuePosition ?? 999999 },
-      },
-      orderBy: { queuePosition: "asc" },
-    });
-
-    if (olderInProcess) {
-      return NextResponse.json(
-        {
-          error: `No puedes completar este pedido antes que el #${olderInProcess.folio} que entró primero a producción`,
-        },
-        { status: 400 }
-      );
-    }
-  }
-
   // Validate ayudanteFisicoId (from Catálogo de Igualadores Físicos)
   let validatedAyudanteFisicoId: string | null = null;
   if (ayudanteFisicoId) {
