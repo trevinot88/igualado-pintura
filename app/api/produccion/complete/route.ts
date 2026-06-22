@@ -56,6 +56,29 @@ export async function POST(req: Request) {
     );
   }
 
+  // FIFO validation: IGUALADOR cannot complete a pedido if an older one (started earlier) is still in process.
+  // ADMIN can override.
+  if (user.role !== "ADMIN") {
+    const olderInProcess = await prisma.order.findFirst({
+      where: {
+        status: "EN_PROCESO",
+        id: { not: orderId },
+        startedAt: { lt: order.startedAt ?? undefined },
+      },
+      orderBy: { startedAt: "asc" },
+      select: { folio: true },
+    });
+
+    if (olderInProcess) {
+      return NextResponse.json(
+        {
+          error: `Debes completar primero el pedido #${olderInProcess.folio} que entró antes a producción. Los pedidos se completan en orden para no afectar a los clientes que esperan primero.`,
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   // Validate ayudanteFisicoId (from Catálogo de Igualadores Físicos)
   let validatedAyudanteFisicoId: string | null = null;
   if (ayudanteFisicoId) {
