@@ -42,7 +42,6 @@ export default function ProduccionPage() {
   const { data: session } = useSession();
   const user = session?.user as { id?: string; role?: string; name?: string } | undefined;
   const role = user?.role;
-  const userId = user?.id;
   const [queue, setQueue] = useState<QueueOrder[]>([]);
   const [completedToday, setCompletedToday] = useState<QueueOrder[]>([]);
 
@@ -51,12 +50,8 @@ export default function ProduccionPage() {
   const [ayudanteId, setAyudanteId] = useState("");
   const [completing, setCompleting] = useState(false);
   const [loading, setLoading] = useState(true);
-  // Estado para confirmar override de turno
-  const [showTurnoConfirm, setShowTurnoConfirm] = useState(false);
-  const [pendingTakeOrder, setPendingTakeOrder] = useState<QueueOrder | null>(null);
-  const [lastEqualizerName, setLastEqualizerName] = useState("");
 
-  // 🆕 Estados para el modal de selección de operador físico
+  // Estados para el modal de selección de operador físico al tomar pedido
   const [showOperadorModal, setShowOperadorModal] = useState(false);
   const [operadoresFisicos, setOperadoresFisicos] = useState<OperadorFisico[]>([]);
   const [selectedOperadorId, setSelectedOperadorId] = useState("");
@@ -85,14 +80,12 @@ export default function ProduccionPage() {
 
   useEffect(() => {
     fetchQueue();
-    // Cargar igualadores físicos activos (Catálogo de Igualadores Físicos)
     fetchOperadoresFisicos();
 
-    const interval = setInterval(fetchQueue, 10000); // Poll every 10s
+    const interval = setInterval(fetchQueue, 10000);
     return () => clearInterval(interval);
   }, [fetchQueue]);
 
-  /** 🆕 Carga los operadores físicos activos desde el catálogo */
   async function fetchOperadoresFisicos() {
     try {
       const res = await fetch("/api/igualadores?activos=true");
@@ -129,7 +122,6 @@ export default function ProduccionPage() {
     }
   }
 
-  /** 🆕 Ejecuta el start vía API con operadorFisicoId */
   async function doTakeOrder(orderId: string, operadorFisicoId: string) {
     setStartingProduction(true);
     const res = await fetch("/api/produccion/start", {
@@ -148,56 +140,17 @@ export default function ProduccionPage() {
     fetchQueue();
   }
 
-  /** 🆕 Al hacer clic en "Tomar Siguiente": abre el modal de selección de operador */
   function handleTakeOrder(order: QueueOrder) {
-    // Guardar el pedido pendiente y abrir modal de selección de operador físico
     setPendingOperadorOrder(order);
     setSelectedOperadorId("");
     setShowOperadorModal(true);
   }
 
-  /** 🆕 Confirmar operador y proceder */
   async function confirmOperadorYTomar() {
     if (!pendingOperadorOrder || !selectedOperadorId) return;
-
-    // Si es ADMIN y quiere override de turno, manejarlo
-    if (role === "ADMIN") {
-      await doTakeOrder(pendingOperadorOrder.id, selectedOperadorId);
-      setShowOperadorModal(false);
-      setPendingOperadorOrder(null);
-      return;
-    }
-
-    // Verificar turno (lógica existente)
-    if (pendingOperadorOrder.igualadorId && pendingOperadorOrder.igualadorId !== userId) {
-      setLastEqualizerName(pendingOperadorOrder.igualador?.name || "otro igualador");
-      setPendingTakeOrder(pendingOperadorOrder);
-      // Cerrar modal de operador, abrir modal de confirmación de turno
-      setShowOperadorModal(false);
-      return;
-    }
-
-    const enProceso = queue.filter((o) => o.status === "EN_PROCESO");
-    const lastTaken = enProceso[enProceso.length - 1];
-    if (lastTaken && lastTaken.igualadorId && lastTaken.igualadorId !== userId) {
-      setLastEqualizerName(lastTaken.igualador?.name || "otro igualador");
-      setPendingTakeOrder(pendingOperadorOrder);
-      setShowOperadorModal(false);
-      return;
-    }
-
-    // Es su turno — tomar directo
     await doTakeOrder(pendingOperadorOrder.id, selectedOperadorId);
     setShowOperadorModal(false);
     setPendingOperadorOrder(null);
-  }
-
-  async function confirmTakeOrder() {
-    if (pendingTakeOrder && selectedOperadorId) {
-      await doTakeOrder(pendingTakeOrder.id, selectedOperadorId);
-    }
-    setShowTurnoConfirm(false);
-    setPendingTakeOrder(null);
   }
 
   async function handleReorder(dragIdx: number, dropIdx: number) {
@@ -315,7 +268,7 @@ export default function ProduccionPage() {
                     <p className="text-sm text-slate-500">
                       {order.colorGroup.name} · {order.liters}L · {order.client.name}
                     </p>
-                    {/* FIFO: solo el primero puede ser tomado */}
+                    {/* Solo mostrar botón Tomar en el primer pendiente */}
                     {order.id === nextInQueue?.id && (role === "ADMIN" || role === "IGUALADOR") && (
                       <Button
                         size="sm"
@@ -365,9 +318,9 @@ export default function ProduccionPage() {
                 <p className="text-sm text-slate-500">
                   {order.colorGroup.name} · {order.liters}L · {order.client.name}
                 </p>
-                {order.igualador && (
+                {order.operadorFisico && (
                   <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                    <UserCheck className="h-3 w-3" /> {order.igualador.name}
+                    <UserCheck className="h-3 w-3" /> {order.operadorFisico.nombre}
                   </p>
                 )}
                 {order.startedAt && (
@@ -447,7 +400,7 @@ export default function ProduccionPage() {
         </div>
       </div>
 
-      {/* 🆕 Modal: Selección de Operador Físico */}
+      {/* Modal: Selección de Operador Físico */}
       <Dialog open={showOperadorModal} onOpenChange={setShowOperadorModal}>
         <DialogContent>
           <DialogHeader>
@@ -500,35 +453,6 @@ export default function ProduccionPage() {
                 disabled={!selectedOperadorId || startingProduction}
               >
                 {startingProduction ? "Iniciando..." : "Confirmar y Tomar"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de confirmación de turno */}
-      <Dialog open={showTurnoConfirm} onOpenChange={setShowTurnoConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-amber-500" />
-              ¿No es tu turno?
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600">
-              <span className="font-semibold">{lastEqualizerName}</span> tomó el último pedido. 
-              Normalmente debería tomar el siguiente, pero si está ausente puedes tomarlo tú.
-            </p>
-            <p className="text-sm text-slate-500">
-              ¿Seguro que quieres tomar este pedido?
-            </p>
-            <div className="flex gap-3 justify-end pt-2">
-              <Button variant="outline" onClick={() => setShowTurnoConfirm(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={confirmTakeOrder}>
-                Sí, tomarlo yo
               </Button>
             </div>
           </div>

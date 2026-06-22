@@ -14,12 +14,11 @@ const startSchema = z.object({
  * POST /api/produccion/start
  * Inicia la producción de un pedido.
  *
- * VALIDACIÓN FIFO: Solo permite iniciar el siguiente pedido en cola
- * (excepto para ADMIN que puede override)
+ * Todos los igualadores usan la misma cuenta (igualador@dyrlo.com),
+ * por lo que no hay validación FIFO ni de turnos.
  *
- * VALIDACIÓN ESTRICTA: operadorFisicoId es requerido — el frontend
+ * operadorFisicoId es requerido — el frontend
  * debe forzar la selección del operador físico antes de continuar.
- * Si no se envía, el backend rebota con error 400.
  */
 export async function POST(req: Request) {
   const session = await auth();
@@ -93,30 +92,6 @@ export async function POST(req: Request) {
       { error: `El pedido está en estado: ${order.status}` },
       { status: 400 }
     );
-  }
-
-  // FIFO VALIDATION: Check if this is the next order in queue
-  if (user.role !== "ADMIN") {
-    const nextInQueue = await prisma.order.findFirst({
-      where: {
-        status: { in: ["PENDIENTE"] },
-      },
-      orderBy: { queuePosition: "asc" },
-    });
-
-    if (nextInQueue && nextInQueue.id !== orderId) {
-      return NextResponse.json(
-        {
-          error: "Debe completar el pedido anterior en la cola",
-          nextOrder: {
-            folio: nextInQueue.folio,
-            id: nextInQueue.id,
-            queuePosition: nextInQueue.queuePosition,
-          },
-        },
-        { status: 403 }
-      );
-    }
   }
 
   // Start production — set both session user AND physical operator
