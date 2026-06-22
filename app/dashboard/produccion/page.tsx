@@ -27,16 +27,11 @@ interface QueueOrder {
   seller: { name: string };
   igualadorId: string | null;
   igualador: { name: string } | null;
+  operadorFisico: { id: string; nombre: string } | null;
   colorGroup: { name: string };
 }
 
-interface IgualadorOption {
-  id: string;
-  name: string;
-  email: string;
-}
-
-/** 🆕 Tipo para el catálogo de operadores físicos */
+/** Tipo para el catálogo de Igualadores Físicos */
 interface OperadorFisico {
   id: string;
   nombre: string;
@@ -50,7 +45,7 @@ export default function ProduccionPage() {
   const userId = user?.id;
   const [queue, setQueue] = useState<QueueOrder[]>([]);
   const [completedToday, setCompletedToday] = useState<QueueOrder[]>([]);
-  const [igualadores, setIgualadores] = useState<IgualadorOption[]>([]);
+
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<QueueOrder | null>(null);
   const [ayudanteId, setAyudanteId] = useState("");
@@ -90,11 +85,7 @@ export default function ProduccionPage() {
 
   useEffect(() => {
     fetchQueue();
-    fetch("/api/usuarios/igualadores")
-      .then((r) => r.json())
-      .then((data) => setIgualadores(Array.isArray(data) ? data : []));
-
-    // 🆕 Cargar operadores físicos activos
+    // Cargar igualadores físicos activos (Catálogo de Igualadores Físicos)
     fetchOperadoresFisicos();
 
     const interval = setInterval(fetchQueue, 10000); // Poll every 10s
@@ -249,7 +240,7 @@ export default function ProduccionPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         orderId: selectedOrder.id,
-        ayudanteId: ayudanteId || undefined,
+        ayudanteFisicoId: ayudanteId || undefined,
       }),
     });
 
@@ -559,18 +550,18 @@ export default function ProduccionPage() {
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">¿Recibiste ayuda de otro igualador? (opcional)</label>
+              <label className="text-sm font-medium">¿Recibiste ayuda de otro igualador físico? (opcional)</label>
               <select
                 className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
                 value={ayudanteId}
                 onChange={(e) => setAyudanteId(e.target.value)}
               >
                 <option value="">Sin ayudante</option>
-                {igualadores
-                  .filter((i) => i.id !== selectedOrder?.igualadorId)
-                  .map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
+                {operadoresFisicos
+                  .filter((i) => i.id !== selectedOrder?.operadorFisico?.id)
+                  .map((op) => (
+                    <option key={op.id} value={op.id}>
+                      {op.nombre}
                     </option>
                   ))}
               </select>

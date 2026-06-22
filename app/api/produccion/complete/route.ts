@@ -10,7 +10,7 @@ import { z } from "zod";
 const completeSchema = z.object({
   orderId: z.string(),
   productionTimeMinutes: z.number().int().positive().optional(),
-  ayudanteId: z.string().optional(),
+  ayudanteFisicoId: z.string().optional(),
 });
 
 /**
@@ -18,6 +18,7 @@ const completeSchema = z.object({
  * Completa un pedido en producción y activa triggers:
  * - Genera etiqueta automáticamente
  * - Envía notificación WhatsApp al cliente
+ * - Registra si recibió ayuda de un igualador físico (del catálogo)
  */
 export async function POST(req: Request) {
   const session = await auth();
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { orderId, productionTimeMinutes, ayudanteId } = completeSchema.parse(body);
+  const { orderId, productionTimeMinutes, ayudanteFisicoId } = completeSchema.parse(body);
 
   // Get the order
   const order = await prisma.order.findUnique({
@@ -84,32 +85,32 @@ export async function POST(req: Request) {
     }
   }
 
-  let validatedAyudanteId: string | null = null;
-  if (ayudanteId) {
-    if (ayudanteId === order.igualadorId) {
+  // Validate ayudanteFisicoId (from Catálogo de Igualadores Físicos)
+  let validatedAyudanteFisicoId: string | null = null;
+  if (ayudanteFisicoId) {
+    if (ayudanteFisicoId === order.operadorFisicoId) {
       return NextResponse.json(
-        { error: "El ayudante debe ser distinto al igualador principal" },
+        { error: "El ayudante debe ser distinto al operador principal" },
         { status: 400 }
       );
     }
 
-    const ayudante = await prisma.user.findFirst({
+    const ayudante = await prisma.igualador.findFirst({
       where: {
-        id: ayudanteId,
-        active: true,
-        role: "IGUALADOR",
+        id: ayudanteFisicoId,
+        activo: true,
       },
       select: { id: true },
     });
 
     if (!ayudante) {
       return NextResponse.json(
-        { error: "El ayudante seleccionado no es válido" },
+        { error: "El ayudante seleccionado no es válido o está inactivo" },
         { status: 400 }
       );
     }
 
-    validatedAyudanteId = ayudante.id;
+    validatedAyudanteFisicoId = ayudante.id;
   }
 
   // Complete the order
@@ -119,14 +120,14 @@ export async function POST(req: Request) {
       status: "LISTO",
       completedAt: new Date(),
       productionTimeMinutes: productionTimeMinutes || null,
-      ayudanteId: validatedAyudanteId,
+      ayudanteFisicoId: validatedAyudanteFisicoId,
     },
     include: {
       client: { select: { name: true, phone: true } },
       colorGroup: { select: { name: true } },
       igualacionLine: { select: { name: true } },
-      igualador: { select: { name: true } },
-      ayudante: { select: { name: true } },
+      operadorFisico: { select: { nombre: true } },
+      ayudanteFisico: { select: { nombre: true } },
     },
   });
 
@@ -136,7 +137,7 @@ export async function POST(req: Request) {
     to: "LISTO",
     folio: order.folio,
     productionTimeMinutes,
-    ayudanteId: validatedAyudanteId,
+    ayudanteFisicoId: validatedAyudanteFisicoId,
   });
 
   // TRIGGER 1: Generate and print label

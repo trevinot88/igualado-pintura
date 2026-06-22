@@ -72,11 +72,11 @@ export async function GET(req: Request) {
       },
     }),
 
-    // KPI 3b – De los completados hoy, cuántos tuvieron ayudante
+    // KPI 3b – De los completados hoy, cuántos tuvieron ayuda de otro igualador físico
     prisma.order.count({
       where: {
         completedAt: { gte: today },
-        ayudanteId: { not: null },
+        ayudanteFisicoId: { not: null },
         status: { not: "CANCELADO" },
       },
     }),
@@ -88,27 +88,26 @@ export async function GET(req: Request) {
       where: { status: { not: "CANCELADO" }, ...rangeWhere },
     }),
 
-    // ⭐ Chart stacked – operador FÍSICO SOLO (sin ayudante)
-    // Group by operadorFisicoId for real per-person metrics
+    // ⭐ Chart stacked – operador FÍSICO SOLO (sin ayudante físico)
     prisma.order.groupBy({
       by: ["operadorFisicoId"],
       _count: true,
       where: {
         operadorFisicoId: { not: null },
-        ayudanteId: null,
+        ayudanteFisicoId: null,
         completedAt: { not: null },
         status: { not: "CANCELADO" },
         ...rangeWhere,
       },
     }),
 
-    // ⭐ Chart stacked – operador FÍSICO CON ayuda
+    // ⭐ Chart stacked – operador FÍSICO CON ayuda de otro igualador físico
     prisma.order.groupBy({
       by: ["operadorFisicoId"],
       _count: true,
       where: {
         operadorFisicoId: { not: null },
-        ayudanteId: { not: null },
+        ayudanteFisicoId: { not: null },
         completedAt: { not: null },
         status: { not: "CANCELADO" },
         ...rangeWhere,

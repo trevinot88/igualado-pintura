@@ -128,7 +128,8 @@ model Igualador {
   activo    Boolean  @default(true)
   creadoAt  DateTime @default(now())
   actualizadoAt DateTime @updatedAt
-  orders    Order[]  @relation("OperadorFisicoOrders")
+  orders           Order[]  @relation("OperadorFisicoOrders")
+  ayudanteOrders   Order[]  @relation("AyudanteFisicoOrders")
 }
 
 /// 🆕 Tabla independiente para los vendedores físicos
@@ -155,6 +156,8 @@ model Order {
   ayudante              User?           @relation("AyudanteOrders", fields: [ayudanteId], references: [id])
   operadorFisicoId      String?
   operadorFisico        Igualador?      @relation("OperadorFisicoOrders", fields: [operadorFisicoId], references: [id])
+  ayudanteFisicoId      String?
+  ayudanteFisico        Igualador?      @relation("AyudanteFisicoOrders", fields: [ayudanteFisicoId], references: [id])
   vendedorId            String?
   vendedor              Vendedor?       @relation("VendedorFisicoOrders", fields: [vendedorId], references: [id])
   colorGroupId          String
