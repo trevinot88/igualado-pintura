@@ -46,7 +46,7 @@ export default function UsuariosPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   // 🆕 Estados para CRUD de operadores físicos
   const [showOperadorForm, setShowOperadorForm] = useState(false);
@@ -165,7 +165,7 @@ export default function UsuariosPage() {
   }
 
   async function handleHardDelete(user: User) {
-    if (!confirm(`¿Eliminar definitivamente a "${user.name}" (${user.email})?\n\nEsta acción es irreversible. Si el usuario tiene órdenes asociadas se desactivará en su lugar.`)) return;
+    if (!confirm(`¿Eliminar definitivamente a "${user.name}" (${user.email})?\n\nEsta acción es irreversible. Las órdenes asociadas serán reasignadas al admin.`)) return;
     const res = await fetch(`/api/usuarios/${user.id}`, {
       method: "DELETE",
       cache: "no-store",
@@ -175,7 +175,6 @@ export default function UsuariosPage() {
       alert(data.error || "Error al eliminar usuario");
       return;
     }
-    if (data.mode === "soft" && data.message) alert(data.message);
     await fetchUsers();
   }
 

@@ -86,31 +86,44 @@ export async function DELETE(
       return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
     }
 
-    const hasOrders = target._count.sellerOrders > 0 || target._count.igualadorOrders > 0;
-
-    if (hasOrders) {
-      await prisma.user.update({ where: { id }, data: { active: false } });
-      try {
-        await logAudit(user.id, "DELETE", "User", id, { deactivated: true, reason: "user has orders" });
-      } catch (auditError) {
-        console.error("Audit log failed on user soft delete:", auditError);
-      }
-      return NextResponse.json({
-        ok: true,
-        mode: "soft",
-        message: "Usuario tiene órdenes asociadas; se desactivó en lugar de borrar.",
-      });
+    // Buscar admin para reasignar órdenes
+    const admin = await prisma.user.findFirst({
+      where: { role: "ADMIN", id: { not: id } },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!admin) {
+      return NextResponse.json({ error: "No hay otro admin para reasignar las órdenes" }, { status: 500 });
     }
 
+    // Reasignar órdenes del usuario (sellerId es NOT NULL)
+    await prisma.order.updateMany({
+      where: { sellerId: id },
+      data: { sellerId: admin.id },
+    });
+
+    // Nullificar referencias en igualadorId y ayudanteId (son nullable)
+    await prisma.order.updateMany({
+      where: { igualadorId: id },
+      data: { igualadorId: null },
+    });
+    await prisma.order.updateMany({
+      where: { ayudanteId: id },
+      data: { ayudanteId: null },
+    });
+
+    // Desvincular audit logs
     await prisma.auditLog.updateMany({ where: { userId: id }, data: { userId: null } });
+
+    // Finalmente eliminar el usuario
     await prisma.user.delete({ where: { id } });
+
     try {
-      await logAudit(user.id, "DELETE", "User", id, { hardDeleted: true, email: target.email });
+      await logAudit(user.id, "DELETE", "User", id, { hardDeleted: true, email: target.email, ordersReassignedTo: admin.id });
     } catch (auditError) {
-      console.error("Audit log failed on user hard delete:", auditError);
+      console.error("Audit log failed on user delete:", auditError);
     }
 
-    return NextResponse.json({ ok: true, mode: "hard" });
+    return NextResponse.json({ ok: true, mode: "hard", message: "Usuario eliminado permanentemente. Órdenes reasignadas al admin." });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
