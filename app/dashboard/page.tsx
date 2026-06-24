@@ -311,7 +311,49 @@ export default function DashboardPage() {
                   ))}
                 </Pie>
                 <Tooltip formatter={(v) => [`${v} pedidos`, ""]} />
-                <Legend verticalAlign="bottom" height={36} />
+                <Legend
+                  verticalAlign="bottom"
+                  height={48}
+                  content={({ payload }) => (
+                    <div
+                      className="flex flex-wrap justify-center gap-x-2 gap-y-0.5 px-2"
+                      style={{ maxHeight: 48, overflow: "hidden" }}
+                    >
+                      {payload?.map((entry, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-1 text-[11px]"
+                          style={{
+                            maxWidth: 110,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              backgroundColor: entry.color,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {entry.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
