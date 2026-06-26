@@ -144,7 +144,7 @@ export async function POST(req: Request) {
   }
 
   // TRIGGER 2: Send WhatsApp notification
-  if (order.client.phone) {
+  if (order.client.phone && order.source === "MOSTRADOR") {
     try {
       await sendWhatsAppNotification(
         order.client.phone,
