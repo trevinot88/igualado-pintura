@@ -94,6 +94,14 @@ export async function POST(req: Request) {
     );
   }
 
+  // Verificar si es el primero en la cola (para auditoría de fuera de orden)
+  const firstInQueue = await prisma.order.findFirst({
+    where: { status: "PENDIENTE" },
+    orderBy: { queuePosition: "asc" },
+    select: { id: true },
+  });
+  const takenOutOfOrder = !!firstInQueue && firstInQueue.id !== orderId;
+
   // Start production — set both session user AND physical operator
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
@@ -116,6 +124,8 @@ export async function POST(req: Request) {
     to: "EN_PROCESO",
     folio: order.folio,
     operadorFisicoId,
+    takenOutOfOrder,
+    takenByRole: user.role,
   });
 
   return NextResponse.json(updatedOrder);

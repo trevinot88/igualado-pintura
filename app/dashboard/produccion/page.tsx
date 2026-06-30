@@ -268,16 +268,26 @@ export default function ProduccionPage() {
                     <p className="text-sm text-slate-500">
                       {order.colorGroup.name} · {order.liters}L · {order.client.name}
                     </p>
-                    {/* Solo mostrar botón Tomar en el primer pendiente */}
-                    {order.id === nextInQueue?.id && (role === "ADMIN" || role === "IGUALADOR") && (
-                      <Button
-                        size="sm"
-                        className="mt-2 w-full"
-                        onClick={() => handleTakeOrder(order)}
-                      >
-                        <Play className="h-4 w-4 mr-1" /> Tomar Siguiente
-                      </Button>
-                    )}
+                    {/* Admin puede tomar cualquier pedido; Igualador solo el siguiente */}
+                    {(() => {
+                      const isAdmin = role === "ADMIN";
+                      const isFirstInQueue = order.id === nextInQueue?.id;
+                      const canTake =
+                        (role === "ADMIN" || role === "IGUALADOR") &&
+                        (isAdmin || isFirstInQueue);
+                      if (!canTake) return null;
+                      return (
+                        <Button
+                          size="sm"
+                          className="mt-2 w-full"
+                          variant={isFirstInQueue ? "default" : "outline"}
+                          onClick={() => handleTakeOrder(order)}
+                        >
+                          <Play className="h-4 w-4 mr-1" />
+                          {isFirstInQueue ? "Tomar Siguiente" : "Tomar (fuera de orden)"}
+                        </Button>
+                      );
+                    })()}
                   </div>
                 </div>
               </Card>

@@ -59,6 +59,14 @@ export function canStartProduction(role: Role): boolean {
   return role === "ADMIN" || role === "IGUALADOR";
 }
 
+/**
+ * ADMIN puede tomar cualquier pedido pendiente (fuera de orden FIFO).
+ * IGUALADOR solo puede tomar el siguiente en la cola.
+ */
+export function canTakeAnyOrder(role: Role): boolean {
+  return role === "ADMIN";
+}
+
 export function canCompleteOrder(role: Role): boolean {
   return role === "ADMIN" || role === "IGUALADOR";
 }
