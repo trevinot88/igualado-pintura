@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { PlusCircle } from "lucide-react";
 
 interface IgualacionLine {
   id: string;
@@ -33,6 +34,8 @@ export default function CodigosIGPage() {
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [editingLine, setEditingLine] = useState<IgualacionLine | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   // Form state for editing
   const [editCode, setEditCode] = useState("");
@@ -40,6 +43,13 @@ export default function CodigosIGPage() {
   const [editDescription, setEditDescription] = useState("");
   const [editActive, setEditActive] = useState(true);
   const [editSortOrder, setEditSortOrder] = useState(0);
+
+  // Form state for creating
+  const [newCode, setNewCode] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newActive, setNewActive] = useState(true);
+  const [newSortOrder, setNewSortOrder] = useState(0);
 
   useEffect(() => {
     fetchLines();
@@ -110,6 +120,49 @@ export default function CodigosIGPage() {
     setShowEditDialog(true);
   }
 
+  function openCreateDialog() {
+    setNewCode("");
+    setNewName("");
+    setNewDescription("");
+    setNewActive(true);
+    setNewSortOrder(0);
+    setShowCreateDialog(true);
+  }
+
+  async function handleCreate() {
+    if (!newCode.trim() || !newName.trim()) {
+      alert("El código y el nombre son obligatorios");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const res = await fetch("/api/igualacion-lines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: newCode.trim(),
+          name: newName.trim(),
+          description: newDescription.trim() || undefined,
+          active: newActive,
+          sortOrder: newSortOrder,
+        }),
+      });
+
+      if (res.ok) {
+        await fetchLines();
+        setShowCreateDialog(false);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Error al crear el código");
+      }
+    } catch (error) {
+      alert("Error al crear el código");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function handleSaveEdit() {
     if (!editingLine) return;
 
@@ -146,6 +199,9 @@ export default function CodigosIGPage() {
         <div className="text-sm text-slate-500">
           {filteredLines.length} de {lines.length} códigos
         </div>
+        <Button onClick={openCreateDialog}>
+          <PlusCircle className="h-4 w-4 mr-2" /> Nuevo Código
+        </Button>
       </div>
 
       {/* Filters */}
@@ -255,6 +311,77 @@ export default function CodigosIGPage() {
           )}
         </div>
       )}
+
+      {/* Create Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nuevo Código de Igualación</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Código *</label>
+              <Input
+                value={newCode}
+                onChange={(e) => setNewCode(e.target.value)}
+                placeholder="Ej: BCRYL100"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nombre/Descripción *</label>
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Ej: BIKAPA CROMACRYL REGULARES 20L"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Descripción adicional</label>
+              <Input
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Orden</label>
+              <Input
+                type="number"
+                value={newSortOrder}
+                onChange={(e) => setNewSortOrder(parseInt(e.target.value) || 0)}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="newActive"
+                checked={newActive}
+                onChange={(e) => setNewActive(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <label htmlFor="newActive" className="text-sm font-medium">
+                Activo
+              </label>
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleCreate}
+                className="flex-1"
+                disabled={creating || !newCode.trim() || !newName.trim()}
+              >
+                {creating ? "Creando..." : "Crear Código"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
