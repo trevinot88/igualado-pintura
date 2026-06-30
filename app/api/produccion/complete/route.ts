@@ -22,7 +22,7 @@ const completeSchema = z.object({
  */
 export async function POST(req: Request) {
   const session = await auth();
-  const user = requireRole(session?.user, ["ADMIN", "IGUALADOR"]);
+  const user = requireRole(session?.user, ["ADMIN", "IGUALADOR", "FACTURACION"]);
 
   if (!canCompleteOrder(user.role)) {
     return NextResponse.json(

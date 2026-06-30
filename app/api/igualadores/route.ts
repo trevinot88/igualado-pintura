@@ -18,7 +18,7 @@ const createIgualadorSchema = z.object({
  */
 export async function GET(req: Request) {
   const session = await auth();
-  requireRole(session?.user, ["ADMIN", "IGUALADOR"]);
+  requireRole(session?.user, ["ADMIN", "IGUALADOR", "FACTURACION"]);
 
   const { searchParams } = new URL(req.url);
   const soloActivos = searchParams.get("activos") === "true";

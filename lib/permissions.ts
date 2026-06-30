@@ -68,7 +68,7 @@ export function canTakeAnyOrder(role: Role): boolean {
 }
 
 export function canCompleteOrder(role: Role): boolean {
-  return role === "ADMIN" || role === "IGUALADOR";
+  return role === "ADMIN" || role === "IGUALADOR" || role === "FACTURACION";
 }
 
 // ─── ROL: VENDEDOR_READONLY ──────────────────────────────
@@ -86,7 +86,7 @@ const TRANSITIONS: Record<string, Record<string, Role[]>> = {
     PAUSADO: ["ADMIN"],
   },
   EN_PROCESO: {
-    LISTO: ["ADMIN", "IGUALADOR"],
+    LISTO: ["ADMIN", "IGUALADOR", "FACTURACION"],
     CANCELADO: ["ADMIN"],
     PAUSADO: ["ADMIN"],
   },

@@ -11,7 +11,7 @@ const DEMO_MODE = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "
 // GET: Production queue (FIFO)
 export async function GET() {
   const session = await auth();
-  requireRole(session?.user, ["ADMIN", "IGUALADOR"]);
+  requireRole(session?.user, ["ADMIN", "IGUALADOR", "FACTURACION"]);
 
   if (DEMO_MODE) return NextResponse.json(DEMO_PRODUCCION);
 

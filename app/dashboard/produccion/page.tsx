@@ -336,7 +336,7 @@ export default function ProduccionPage() {
                 {order.startedAt && (
                   <LiveTimer startedAt={order.startedAt} />
                 )}
-                {(role === "ADMIN" || role === "IGUALADOR") && (
+                {(role === "ADMIN" || role === "IGUALADOR" || role === "FACTURACION") && (
                   <Button
                     size="sm"
                     variant="default"
@@ -383,7 +383,7 @@ export default function ProduccionPage() {
                   {order.colorGroup.name} · {order.liters}L · {order.client.name}
                 </p>
                 <div className="flex gap-2 mt-2">
-                  {(role === "ADMIN" || role === "FACTURACION") && (
+                  {role === "ADMIN" && (
                     <Button
                       size="sm"
                       className="flex-1 bg-slate-700 hover:bg-slate-800"

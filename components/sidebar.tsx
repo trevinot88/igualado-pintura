@@ -28,7 +28,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN"] },
-  { label: "Producción", href: "/dashboard/produccion", icon: Factory, roles: ["ADMIN", "IGUALADOR"] },
+  { label: "Producción", href: "/dashboard/produccion", icon: Factory, roles: ["ADMIN", "IGUALADOR", "FACTURACION"] },
   { label: "Nuevo Pedido", href: "/dashboard/pedidos/nuevo", icon: PlusCircle, roles: ["ADMIN", "FACTURACION"] },
   { label: "Pedidos", href: "/dashboard/pedidos", icon: ClipboardList, roles: ["ADMIN", "FACTURACION", "VENDEDOR_READONLY", "IGUALADOR"] },
   { label: "Clientes", href: "/dashboard/clientes", icon: Users, roles: ["ADMIN", "FACTURACION"] },
