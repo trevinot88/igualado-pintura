@@ -383,7 +383,7 @@ export default function ProduccionPage() {
                   {order.colorGroup.name} · {order.liters}L · {order.client.name}
                 </p>
                 <div className="flex gap-2 mt-2">
-                  {role === "ADMIN" && (
+                  {(role === "ADMIN" || role === "FACTURACION") && (
                     <Button
                       size="sm"
                       className="flex-1 bg-slate-700 hover:bg-slate-800"
