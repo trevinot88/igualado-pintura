@@ -56,14 +56,17 @@ export async function POST(req: Request) {
     );
   }
 
-  // FIFO validation: IGUALADOR cannot complete a pedido if an older one (started earlier) is still in process.
-  // ADMIN can override.
+  // FIFO validation per operator: IGUALADOR cannot complete a pedido if they have
+  // an older one (started earlier) still in process. ADMIN can override.
+  // Each operador físico works independently, so we only check orders assigned
+  // to the same operadorFisicoId, not globally.
   if (user.role !== "ADMIN") {
     const olderInProcess = await prisma.order.findFirst({
       where: {
         status: "EN_PROCESO",
         id: { not: orderId },
         startedAt: { lt: order.startedAt ?? undefined },
+        operadorFisicoId: order.operadorFisicoId ?? undefined,
       },
       orderBy: { startedAt: "asc" },
       select: { folio: true },
