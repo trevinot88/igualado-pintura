@@ -10,6 +10,7 @@ const statusSchema = z.object({
   status: z.enum([
     "PENDIENTE",
     "EN_PROCESO",
+    "PAUSADO",
     "LISTO",
     "FACTURADO",
     "PAGADO",

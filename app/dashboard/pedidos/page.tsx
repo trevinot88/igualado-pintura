@@ -13,7 +13,7 @@ import {
   ORDER_STATUS_LABELS,
   ORDER_SOURCE_LABELS,
 } from "@/lib/utils";
-import { Search, Filter, Eye, Trash2, Calendar } from "lucide-react";
+import { Search, Filter, Eye, Trash2, Calendar, Pencil } from "lucide-react";
 
 interface Order {
   id: string;
@@ -54,8 +54,8 @@ function getDateRange(filter: DateFilter): { from?: string; to?: string } {
 }
 
 export default function PedidosPage() {
-  const { data: session } = useSession();
-  const role = (session?.user as { role?: string })?.role;
+  const { data: session, status: sessionStatus } = useSession();
+  const role = (session?.user as { role?: string })?.role || "";
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -87,7 +87,7 @@ export default function PedidosPage() {
       return;
     }
     // Refresh
-    setSearch((s) => s + " "); // trigger re-fetch
+    setSearch((s) => s + " ");
     setTimeout(() => setSearch((s) => s.trim()), 0);
   }
 
@@ -227,21 +227,30 @@ export default function PedidosPage() {
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {formatDate(order.createdAt)}
                   </td>
-                  <td className="px-4 py-3 flex items-center gap-1">
-                    {role === "ADMIN" && (
-                      <button
-                        onClick={() => handleDeleteOrder(order.id, order.folio)}
-                        className="text-slate-400 hover:text-red-600 transition-colors p-1"
-                        title="Eliminar/Cancelar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                    <Link href={`/dashboard/pedidos/${order.id}`}>
-                      <Button variant="ghost" size="icon">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </Link>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      {role === "ADMIN" && (
+                        <button
+                          onClick={() => handleDeleteOrder(order.id, order.folio)}
+                          className="text-slate-400 hover:text-red-600 transition-colors p-1"
+                          title="Eliminar/Cancelar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                      <Link href={`/dashboard/pedidos/${order.id}`}>
+                        <Button variant="ghost" size="icon" title="Ver detalle">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      {sessionStatus === "authenticated" && role === "ADMIN" && order.status !== "ENTREGADO" && order.status !== "CANCELADO" && (
+                        <Link href={`/dashboard/pedidos/${order.id}?edit=1`}>
+                          <Button variant="ghost" size="icon" title="Editar pedido">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -7,13 +7,19 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
 const updateOrderSchema = z.object({
-  colorGroupId: z.string().optional(),
-  igualacionLineId: z.string().optional(),
-  colorName: z.string().optional(),
+  clientId: z.string().min(1).optional(),
+  colorGroupId: z.string().min(1).optional(),
+  igualacionLineId: z.string().nullable().optional(),
+  colorName: z.string().min(1).optional(),
   liters: z.number().positive().optional(),
   source: z.enum(["MOSTRADOR", "VENTAS", "WHATSAPP", "REDES_SOCIALES"]).optional(),
+  sellerId: z.string().min(1).optional(),
+  igualadorId: z.string().nullable().optional(),
   notes: z.string().optional(),
 });
+
+// Estados terminales en los que ya no se puede editar un pedido
+const NON_EDITABLE_STATUSES = ["ENTREGADO", "CANCELADO"];
 
 export async function GET(
   _req: Request,
@@ -64,15 +70,93 @@ export async function PATCH(
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-  if (order.status !== "PENDIENTE") {
+  if (NON_EDITABLE_STATUSES.includes(order.status)) {
     return NextResponse.json(
-      { error: "Solo se pueden editar pedidos PENDIENTES" },
+      { error: `No se puede editar un pedido en estado: ${order.status}` },
       { status: 400 }
     );
   }
 
   const body = await req.json();
   const data = updateOrderSchema.parse(body);
+
+  // Validar clientId si se intenta cambiar
+  if (data.clientId && data.clientId !== order.clientId) {
+    const client = await prisma.client.findUnique({
+      where: { id: data.clientId },
+      select: { id: true, active: true },
+    });
+    if (!client || !client.active) {
+      return NextResponse.json(
+        { error: "El cliente seleccionado no es válido o está inactivo" },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Validar colorGroupId si se intenta cambiar
+  if (data.colorGroupId && data.colorGroupId !== order.colorGroupId) {
+    const group = await prisma.colorGroup.findUnique({
+      where: { id: data.colorGroupId },
+      select: { id: true, active: true },
+    });
+    if (!group || !group.active) {
+      return NextResponse.json(
+        { error: "El grupo de color seleccionado no es válido o está inactivo" },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Validar igualacionLineId si se intenta cambiar (puede ser null para desasignar)
+  if (data.igualacionLineId !== undefined && data.igualacionLineId !== null) {
+    const line = await prisma.igualacionLine.findUnique({
+      where: { id: data.igualacionLineId },
+      select: { id: true, active: true },
+    });
+    if (!line || !line.active) {
+      return NextResponse.json(
+        { error: "La línea de igualación seleccionada no es válida o está inactiva" },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Validar sellerId si se intenta cambiar
+  if (data.sellerId && data.sellerId !== order.sellerId) {
+    const seller = await prisma.user.findFirst({
+      where: {
+        id: data.sellerId,
+        active: true,
+        role: { in: ["ADMIN", "VENDEDOR_READONLY"] },
+      },
+      select: { id: true },
+    });
+    if (!seller) {
+      return NextResponse.json(
+        { error: "El vendedor seleccionado no es válido" },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Validar igualadorId si se intenta cambiar (puede ser null)
+  if (data.igualadorId !== undefined && data.igualadorId !== null) {
+    const igualador = await prisma.user.findFirst({
+      where: {
+        id: data.igualadorId,
+        active: true,
+        role: "IGUALADOR",
+      },
+      select: { id: true },
+    });
+    if (!igualador) {
+      return NextResponse.json(
+        { error: "El igualador seleccionado no es válido" },
+        { status: 400 }
+      );
+    }
+  }
 
   const updated = await prisma.order.update({
     where: { id },

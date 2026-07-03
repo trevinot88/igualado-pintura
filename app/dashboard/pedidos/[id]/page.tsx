@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { IgualacionLineCombobox } from "@/components/igualacion-line-combobox";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   formatDate,
@@ -26,6 +26,7 @@ import {
   Printer,
   Mail,
   ChevronRight,
+  Pencil,
 } from "lucide-react";
 
 interface OrderDetail {
@@ -45,15 +46,52 @@ interface OrderDetail {
   paidAt: string | null;
   deliveredAt: string | null;
   cancelledAt: string | null;
+  clientId: string;
+  colorGroupId: string;
+  igualacionLineId: string | null;
+  sellerId: string;
+  igualadorId: string | null;
   client: { id: string; name: string; email: string | null; phone: string | null; company: string | null; allowCredit: boolean };
   seller: { id: string; name: string; email: string };
   vendedor: { id: string; nombre: string } | null;
   igualador: { id: string; name: string; email: string } | null;
-  colorGroup: { name: string };
+  colorGroup: { id: string; name: string };
   igualacionLine: { id: string; code: string; name: string } | null;
   location: { name: string } | null;
   labels: { id: string; printedAt: string }[];
   auditTrail: { id: string; action: string; changes: Record<string, unknown> | null; createdAt: string; user: { name: string } | null }[];
+}
+
+interface Client {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
+interface ColorGroup {
+  id: string;
+  name: string;
+}
+
+interface Seller {
+  id: string;
+  name: string;
+  role: "ADMIN" | "VENDEDOR_READONLY";
+  email: string;
+}
+
+interface IgualadorOption {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface IgualacionLine {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
 }
 
 const STATUS_TRANSITIONS: Record<string, { next: string; label: string; roles: string[]; color: string }[]> = {
@@ -77,14 +115,44 @@ const STATUS_TRANSITIONS: Record<string, { next: string; label: string; roles: s
   ],
 };
 
+const NON_EDITABLE_STATUSES = ["ENTREGADO", "CANCELADO"];
+
+const SOURCES = [
+  { value: "MOSTRADOR", label: "Mostrador" },
+  { value: "VENTAS", label: "Ventas" },
+  { value: "WHATSAPP", label: "WhatsApp" },
+  { value: "REDES_SOCIALES", label: "Redes Sociales" },
+];
+
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const role = (session?.user as { role?: string })?.role || "";
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [groups, setGroups] = useState<ColorGroup[]>([]);
+  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [igualadores, setIgualadores] = useState<IgualadorOption[]>([]);
+  const [lines, setLines] = useState<IgualacionLine[]>([]);
+
+  // Edit form fields
+  const [editClientId, setEditClientId] = useState("");
+  const [editColorGroupId, setEditColorGroupId] = useState("");
+  const [editIgualacionLineId, setEditIgualacionLineId] = useState<string | null>(null);
+  const [editColorName, setEditColorName] = useState("");
+  const [editLiters, setEditLiters] = useState(1);
+  const [editSource, setEditSource] = useState("MOSTRADOR");
+  const [editSellerId, setEditSellerId] = useState("");
+  const [editIgualadorId, setEditIgualadorId] = useState<string | null>(null);
+  const [editNotes, setEditNotes] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
 
   function fetchOrder() {
     fetch(`/api/pedidos/${id}`)
@@ -135,10 +203,65 @@ export default function OrderDetailPage() {
     alert("Email enviado");
   }
 
+  function openEditModal() {
+    if (!order) return;
+    setEditClientId(order.clientId);
+    setEditColorGroupId(order.colorGroupId);
+    setEditIgualacionLineId(order.igualacionLineId);
+    setEditColorName(order.colorName);
+    setEditLiters(order.liters);
+    setEditSource(order.source);
+    setEditSellerId(order.sellerId);
+    setEditIgualadorId(order.igualadorId);
+    setEditNotes(order.notes || "");
+    setClientSearch(order.client.name);
+    setShowEditModal(true);
+
+    // Load options if not already loaded
+    if (clients.length === 0) fetch("/api/clientes").then((r) => r.json()).then(setClients);
+    if (groups.length === 0) fetch("/api/color-groups").then((r) => r.json()).then(setGroups);
+    if (sellers.length === 0) fetch("/api/usuarios/sellers").then((r) => r.json()).then(setSellers);
+    if (igualadores.length === 0) fetch("/api/usuarios/igualadores").then((r) => r.json()).then(setIgualadores);
+    if (lines.length === 0) fetch("/api/igualacion-lines").then((r) => r.json()).then(setLines);
+  }
+
+  async function handleSaveEdit() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/pedidos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: editClientId,
+          colorGroupId: editColorGroupId,
+          igualacionLineId: editIgualacionLineId,
+          colorName: editColorName,
+          liters: editLiters,
+          source: editSource,
+          sellerId: editSource === "VENTAS" ? editSellerId : undefined,
+          igualadorId: editIgualadorId,
+          notes: editNotes || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        setShowEditModal(false);
+        fetchOrder();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Error al guardar cambios");
+      }
+    } catch {
+      alert("Error al guardar cambios");
+    }
+    setSaving(false);
+  }
+
   if (loading || !order) return <div className="p-8 text-center">Cargando pedido...</div>;
 
   const transitions = STATUS_TRANSITIONS[order.status] || [];
   const allowedTransitions = transitions.filter((t) => t.roles.includes(role));
+  const canEdit = sessionStatus === "authenticated" && role === "ADMIN" && !NON_EDITABLE_STATUSES.includes(order.status);
 
   const timeline = [
     { label: "Creado", date: order.createdAt, done: true },
@@ -150,6 +273,10 @@ export default function OrderDetailPage() {
   if (order.cancelledAt) {
     timeline.push({ label: "Cancelado", date: order.cancelledAt, done: true });
   }
+
+  const filteredClients = clients.filter((c) =>
+    c.name.toLowerCase().includes(clientSearch.toLowerCase())
+  );
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -180,6 +307,11 @@ export default function OrderDetailPage() {
             {t.label}
           </Button>
         ))}
+        {canEdit && (
+          <Button variant="outline" onClick={openEditModal}>
+            <Pencil className="h-4 w-4 mr-1" /> Editar Pedido
+          </Button>
+        )}
         <Button variant="outline" onClick={handlePrintLabel}>
           <Printer className="h-4 w-4 mr-1" /> Etiqueta
         </Button>
@@ -349,6 +481,194 @@ export default function OrderDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Pedido {order.folio}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Cliente */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Cliente</label>
+              <Input
+                placeholder="Buscar cliente..."
+                value={clientSearch}
+                onChange={(e) => setClientSearch(e.target.value)}
+              />
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {filteredClients.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setEditClientId(c.id);
+                      setClientSearch(c.name);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                      editClientId === c.id
+                        ? "bg-slate-900 text-white"
+                        : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <div className="font-medium">{c.name}</div>
+                    {c.phone && <div className="text-xs opacity-70">{c.phone}</div>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Grupo de Color */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Grupo de Color</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {groups.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => setEditColorGroupId(g.id)}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors border ${
+                      editColorGroupId === g.id
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-200 hover:border-slate-400 dark:border-slate-700"
+                    }`}
+                  >
+                    {g.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Línea de Igualación */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Línea de Igualación</label>
+              <IgualacionLineCombobox
+                lines={lines}
+                value={editIgualacionLineId || ""}
+                onChange={(lineId) => {
+                  setEditIgualacionLineId(lineId || null);
+                  const selectedLine = lines.find((l) => l.id === lineId);
+                  if (selectedLine?.description && !editColorName) {
+                    setEditColorName(selectedLine.description);
+                  }
+                }}
+                placeholder="Buscar por código o descripción..."
+              />
+            </div>
+
+            {/* Color Name */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nombre del Color</label>
+              <Input
+                placeholder="Ej: BIKAPA CROMACRYL ORG. APERLADO 1L"
+                value={editColorName}
+                onChange={(e) => setEditColorName(e.target.value)}
+              />
+            </div>
+
+            {/* Litros */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Litros</label>
+              <Input
+                type="number"
+                step="0.5"
+                min="0.5"
+                value={editLiters}
+                onChange={(e) => setEditLiters(parseFloat(e.target.value) || 0)}
+              />
+            </div>
+
+            {/* Canal */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Canal</label>
+              <div className="flex gap-2 flex-wrap">
+                {SOURCES.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => {
+                      setEditSource(s.value);
+                      if (s.value !== "VENTAS") setEditSellerId("");
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      editSource === s.value
+                        ? "bg-slate-900 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Vendedor (only for VENTAS) */}
+            {editSource === "VENTAS" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Vendedor *</label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                  value={editSellerId}
+                  onChange={(e) => setEditSellerId(e.target.value)}
+                >
+                  <option value="">Selecciona quién hizo la venta</option>
+                  {sellers.map((seller) => (
+                    <option key={seller.id} value={seller.id}>
+                      {seller.name} ({seller.role === "ADMIN" ? "Admin" : "Vendedor"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Igualador */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Igualador</label>
+              <select
+                className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                value={editIgualadorId || ""}
+                onChange={(e) => setEditIgualadorId(e.target.value || null)}
+              >
+                <option value="">Sin asignar</option>
+                {igualadores.map((ig) => (
+                  <option key={ig.id} value={ig.id}>
+                    {ig.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Notas */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notas</label>
+              <textarea
+                className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                rows={3}
+                placeholder="Notas adicionales..."
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+              />
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={handleSaveEdit}
+              disabled={
+                saving ||
+                !editClientId ||
+                !editColorGroupId ||
+                !editColorName ||
+                !editLiters ||
+                (editSource === "VENTAS" && !editSellerId)
+              }
+            >
+              {saving ? "Guardando..." : "Guardar Cambios"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
