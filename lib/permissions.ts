@@ -92,9 +92,12 @@ const TRANSITIONS: Record<string, Record<string, Role[]>> = {
   },
   LISTO: {
     ENTREGADO: ["ADMIN", "FACTURACION"],
+    CANCELADO: ["ADMIN"],
   },
   PAUSADO: {
     PENDIENTE: ["ADMIN"],
+    EN_PROCESO: ["ADMIN"],
+    CANCELADO: ["ADMIN"],
   },
   ENTREGADO: {},
   CANCELADO: {},

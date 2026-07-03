@@ -179,6 +179,7 @@ model Order {
   completedAt           DateTime?
   deliveredAt           DateTime?
   cancelledAt           DateTime?
+  pausedAt              DateTime?
   labels                Label[]
 
   @@index([status])

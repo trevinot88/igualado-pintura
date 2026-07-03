@@ -45,11 +45,23 @@ export async function POST(req: Request) {
     );
   }
 
+  // Calcular cuánto tiempo estuvo pausado para ajustar startedAt
+  // y que el timer de producción no cuente el tiempo de pausa
+  const updateData: Record<string, unknown> = {
+    status: "PENDIENTE",
+    pausedAt: null,
+  };
+
+  if (order.pausedAt && order.startedAt) {
+    const pausedMs = Date.now() - order.pausedAt.getTime();
+    // Ajustar startedAt sumando el tiempo pausado, así el timer
+    // mostrará solo el tiempo real de producción
+    updateData.startedAt = new Date(order.startedAt.getTime() + pausedMs);
+  }
+
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
-    data: {
-      status: "PENDIENTE",
-    },
+    data: updateData,
   });
 
   await logAudit(user.id, "STATUS_CHANGED", "Order", orderId, {

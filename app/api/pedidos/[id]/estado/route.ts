@@ -92,16 +92,24 @@ export async function PATCH(
 
   if (newStatus === "EN_PROCESO") {
     updateData.startedAt = new Date();
+    updateData.pausedAt = null;
     // Siempre actualizar el igualadorId para reflejar quién realmente toma el pedido
     // (útil cuando se overridea la asignación round-robin desde el frontend)
     updateData.igualadorId = user.id;
   } else if (newStatus === "LISTO") {
     updateData.completedAt = new Date();
+    updateData.pausedAt = null;
     if (order.startedAt) {
-      updateData.productionTimeMinutes = Math.round(
-        (Date.now() - order.startedAt.getTime()) / 60000
-      );
+      // Calcular tiempo de producción real, restando el tiempo que estuvo pausado
+      const totalMs = Date.now() - order.startedAt.getTime();
+      const pausedMs = order.pausedAt
+        ? Date.now() - order.pausedAt.getTime()
+        : 0;
+      const effectiveMs = Math.max(0, totalMs - pausedMs);
+      updateData.productionTimeMinutes = Math.round(effectiveMs / 60000);
     }
+  } else if (newStatus === "PAUSADO") {
+    updateData.pausedAt = new Date();
   } else if (newStatus === "FACTURADO") {
     updateData.invoicedAt = new Date();
   } else if (newStatus === "PAGADO") {

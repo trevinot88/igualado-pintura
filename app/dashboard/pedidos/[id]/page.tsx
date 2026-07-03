@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -127,6 +127,7 @@ const SOURCES = [
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
   const role = (session?.user as { role?: string })?.role || "";
 
@@ -166,6 +167,13 @@ export default function OrderDetailPage() {
   useEffect(() => {
     fetchOrder();
   }, [id]);
+
+  // Auto-open edit modal when ?edit=1 is in the URL
+  useEffect(() => {
+    if (searchParams.get("edit") === "1" && !loading && order) {
+      openEditModal();
+    }
+  }, [searchParams, loading, order]);
 
   async function handleStatusChange(newStatus: string) {
     const res = await fetch(`/api/pedidos/${id}/estado`, {

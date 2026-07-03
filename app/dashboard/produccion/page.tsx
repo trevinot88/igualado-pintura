@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatDate, formatMinutes, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS } from "@/lib/utils";
-import { Play, CheckCircle, Clock, GripVertical, Printer, PackageCheck, UserCheck, Trash2 } from "lucide-react";
+import { Play, CheckCircle, Clock, GripVertical, Printer, PackageCheck, UserCheck, Trash2, Pause, PlayCircle } from "lucide-react";
 
 interface QueueOrder {
   id: string;
@@ -22,6 +22,7 @@ interface QueueOrder {
   status: string;
   queuePosition: number;
   startedAt: string | null;
+  pausedAt: string | null;
   createdAt: string;
   client: { name: string };
   seller: { name: string };
@@ -94,6 +95,20 @@ export default function ProduccionPage() {
     } catch {
       console.error("Error fetching operadores físicos");
     }
+  }
+
+  async function handleStatusChange(orderId: string, newStatus: string) {
+    const res = await fetch(`/api/pedidos/${orderId}/estado`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "No se pudo cambiar el estado");
+      return;
+    }
+    fetchQueue();
   }
 
   async function handleMarkDelivered(orderId: string) {
@@ -215,11 +230,67 @@ export default function ProduccionPage() {
 
   const pendientes = queue.filter((o) => o.status === "PENDIENTE");
   const enProceso = queue.filter((o) => o.status === "EN_PROCESO");
+  const pausados = queue.filter((o) => o.status === "PAUSADO");
   const nextInQueue = pendientes[0];
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Producción</h1>
+
+      {/* Paused Orders Banner - shown at top when there are paused orders */}
+      {pausados.length > 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-900 rounded-lg p-4">
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
+            <Pause className="h-5 w-5" />
+            Pausados ({pausados.length})
+          </h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {pausados.map((order) => (
+              <Card key={order.id} className="p-3 border-yellow-300 bg-yellow-100/50 dark:border-yellow-800 dark:bg-yellow-950/20">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-sm">{order.folio}</span>
+                  <Badge className={ORDER_STATUS_COLORS.PAUSADO}>
+                    {ORDER_STATUS_LABELS.PAUSADO}
+                  </Badge>
+                </div>
+                <p className="font-semibold text-sm mt-1">{order.colorName}</p>
+                <p className="text-xs text-slate-500">
+                  {order.colorGroup.name} · {order.liters}L · {order.client.name}
+                </p>
+                {order.operadorFisico && (
+                  <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                    <UserCheck className="h-3 w-3" /> {order.operadorFisico.nombre}
+                  </p>
+                )}
+                {order.pausedAt && (
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1 flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Pausado: {formatDate(order.pausedAt)}
+                  </p>
+                )}
+                {role === "ADMIN" && (
+                  <div className="flex gap-1 mt-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                      onClick={() => handleStatusChange(order.id, "EN_PROCESO")}
+                    >
+                      <PlayCircle className="h-4 w-4 mr-1" /> Reanudar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 border-red-300 hover:bg-red-50"
+                      onClick={() => handleStatusChange(order.id, "CANCELADO")}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* En Cola */}
@@ -252,8 +323,17 @@ export default function ProduccionPage() {
                       <div className="flex items-center gap-1">
                         {role === "ADMIN" && (
                           <button
+                            onClick={() => handleStatusChange(order.id, "PAUSADO")}
+                            className="text-slate-400 hover:text-yellow-600 transition-colors p-1"
+                            title="Pausar"
+                          >
+                            <Pause className="h-4 w-4" />
+                          </button>
+                        )}
+                        {role === "ADMIN" && (
+                          <button
                             onClick={() => handleDeleteOrder(order.id, order.folio)}
-                            className="text-slate-400 hover:text-red-600 transition-colors"
+                            className="text-slate-400 hover:text-red-600 transition-colors p-1"
                             title="Eliminar/Cancelar"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -312,8 +392,17 @@ export default function ProduccionPage() {
                   <div className="flex items-center gap-1">
                     {role === "ADMIN" && (
                       <button
+                        onClick={() => handleStatusChange(order.id, "PAUSADO")}
+                        className="text-slate-400 hover:text-yellow-600 transition-colors p-1"
+                        title="Pausar"
+                      >
+                        <Pause className="h-4 w-4" />
+                      </button>
+                    )}
+                    {role === "ADMIN" && (
+                      <button
                         onClick={() => handleDeleteOrder(order.id, order.folio)}
-                        className="text-slate-400 hover:text-red-600 transition-colors"
+                        className="text-slate-400 hover:text-red-600 transition-colors p-1"
                         title="Eliminar/Cancelar"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -334,7 +423,7 @@ export default function ProduccionPage() {
                   </p>
                 )}
                 {order.startedAt && (
-                  <LiveTimer startedAt={order.startedAt} />
+                  <LiveTimer startedAt={order.startedAt} pausedAt={order.pausedAt} />
                 )}
                 {(role === "ADMIN" || role === "IGUALADOR" || role === "FACTURACION") && (
                   <Button
@@ -369,7 +458,7 @@ export default function ProduccionPage() {
                     {role === "ADMIN" && (
                       <button
                         onClick={() => handleDeleteOrder(order.id, order.folio)}
-                        className="text-slate-400 hover:text-red-600 transition-colors"
+                        className="text-slate-400 hover:text-red-600 transition-colors p-1"
                         title="Eliminar/Cancelar"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -515,20 +604,33 @@ export default function ProduccionPage() {
   );
 }
 
-function LiveTimer({ startedAt }: { startedAt: string }) {
+function LiveTimer({ startedAt, pausedAt }: { startedAt: string; pausedAt?: string | null }) {
   const [elapsed, setElapsed] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     const start = new Date(startedAt).getTime();
-    const tick = () => setElapsed(Math.floor((Date.now() - start) / 60000));
+    const pausedTime = pausedAt ? new Date(pausedAt).getTime() : null;
+
+    const tick = () => {
+      if (pausedTime) {
+        // Si está pausado, mostrar el tiempo hasta el momento de pausa
+        setElapsed(Math.floor((pausedTime - start) / 60000));
+        setIsPaused(true);
+      } else {
+        setElapsed(Math.floor((Date.now() - start) / 60000));
+        setIsPaused(false);
+      }
+    };
     tick();
     const interval = setInterval(tick, 30000);
     return () => clearInterval(interval);
-  }, [startedAt]);
+  }, [startedAt, pausedAt]);
 
   return (
-    <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+    <p className={`text-xs mt-1 flex items-center gap-1 ${isPaused ? "text-yellow-600" : "text-blue-600"}`}>
       <Clock className="h-3 w-3" /> {formatMinutes(elapsed)}
+      {isPaused && <span className="ml-1">(pausado)</span>}
     </p>
   );
 }

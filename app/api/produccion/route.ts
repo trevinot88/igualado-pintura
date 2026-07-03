@@ -16,7 +16,7 @@ export async function GET() {
   if (DEMO_MODE) return NextResponse.json(DEMO_PRODUCCION);
 
   const queue = await prisma.order.findMany({
-    where: { status: { in: ["PENDIENTE", "EN_PROCESO"] } },
+    where: { status: { in: ["PENDIENTE", "EN_PROCESO", "PAUSADO"] } },
     include: {
       client: { select: { name: true } },
       seller: { select: { name: true } },

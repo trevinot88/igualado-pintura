@@ -50,6 +50,7 @@ export async function POST(req: Request) {
     where: { id: orderId },
     data: {
       status: "PAUSADO",
+      pausedAt: new Date(),
     },
   });
 
