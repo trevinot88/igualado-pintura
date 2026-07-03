@@ -94,6 +94,7 @@ export async function GET(req: Request) {
       seller: { select: { name: true } },
       igualador: { select: { name: true } },
       ayudante: { select: { name: true } },
+      operadorFisico: { select: { nombre: true } },
       vendedor: { select: { nombre: true } },
       colorGroup: { select: { name: true } },
       igualacionLine: { select: { name: true, code: true } },

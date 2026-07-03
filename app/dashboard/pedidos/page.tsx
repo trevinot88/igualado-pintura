@@ -28,6 +28,8 @@ interface Order {
   colorGroup: { name: string };
   igualador: { name: string } | null;
   ayudante: { name: string } | null;
+  operadorFisico: { nombre: string } | null;
+  vendedor: { nombre: string } | null;
 }
 
 type DateFilter = "" | "day" | "week" | "month" | "year";
@@ -197,10 +199,23 @@ export default function PedidosPage() {
                   <td className="px-4 py-3">{order.client.name}</td>
                   <td className="px-4 py-3">{order.liters}L</td>
                   <td className="px-4 py-3 text-xs">
-                    {ORDER_SOURCE_LABELS[order.source] || order.source}
+                    {order.source === "VENTAS" && order.vendedor ? (
+                      <span>
+                        {ORDER_SOURCE_LABELS[order.source] || order.source} - {order.vendedor.nombre}
+                      </span>
+                    ) : (
+                      ORDER_SOURCE_LABELS[order.source] || order.source
+                    )}
                   </td>
                   <td className="px-4 py-3 text-xs">
-                    {order.igualador ? (
+                    {order.operadorFisico ? (
+                      <div>
+                        <span>{order.operadorFisico.nombre}</span>
+                        {order.ayudante && (
+                          <span className="block text-slate-400">+ {order.ayudante.name}</span>
+                        )}
+                      </div>
+                    ) : order.igualador ? (
                       <div>
                         <span>{order.igualador.name}</span>
                         {order.ayudante && (
