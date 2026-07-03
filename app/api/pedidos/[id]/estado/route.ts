@@ -62,14 +62,16 @@ export async function PATCH(
     }
   }
 
-  // FIFO enforcement for non-admin: EN_PROCESO → LISTO
-  // Cannot complete an order if an older order is still EN_PROCESO
+  // FIFO enforcement per operator: EN_PROCESO → LISTO
+  // Cannot complete an order if the same operador físico has an older one still EN_PROCESO.
+  // Each operador works independently, so we only check orders with the same operadorFisicoId.
   if (newStatus === "LISTO" && user.role !== "ADMIN") {
     const olderInProcess = await prisma.order.findFirst({
       where: {
         status: "EN_PROCESO",
         id: { not: id },
         queuePosition: { lt: order.queuePosition ?? 999999 },
+        operadorFisicoId: order.operadorFisicoId ?? undefined,
       },
       orderBy: { queuePosition: "asc" },
     });
