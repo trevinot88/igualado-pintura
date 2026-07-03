@@ -215,15 +215,8 @@ export default function PedidosPage() {
                           <span className="block text-slate-400">+ {order.ayudante.name}</span>
                         )}
                       </div>
-                    ) : order.igualador ? (
-                      <div>
-                        <span>{order.igualador.name}</span>
-                        {order.ayudante && (
-                          <span className="block text-slate-400">+ {order.ayudante.name}</span>
-                        )}
-                      </div>
                     ) : (
-                      <span className="text-slate-300">—</span>
+                      <span className="text-slate-400">Sin asignar</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
