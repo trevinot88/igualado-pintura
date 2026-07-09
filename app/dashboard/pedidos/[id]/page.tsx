@@ -29,6 +29,7 @@ import {
   Pencil,
 } from "lucide-react";
 
+
 interface OrderDetail {
   id: string;
   folio: string;
@@ -133,6 +134,9 @@ export default function OrderDetailPage() {
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [editNotes, setEditNotes] = useState("");
+  const [notesContent, setNotesContent] = useState("");
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -152,7 +156,7 @@ export default function OrderDetailPage() {
   const [editSource, setEditSource] = useState("MOSTRADOR");
   const [editSellerId, setEditSellerId] = useState("");
   const [editIgualadorId, setEditIgualadorId] = useState<string | null>(null);
-  const [editNotes, setEditNotes] = useState("");
+  const [editFormNotes, setEditFormNotes] = useState("");
   const [clientSearch, setClientSearch] = useState("");
 
   function fetchOrder() {
@@ -211,6 +215,21 @@ export default function OrderDetailPage() {
     alert("Email enviado");
   }
 
+  async function handleSaveNotes() {
+    const res = await fetch(`/api/pedidos/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: notesContent }),
+    });
+    if (res.ok) {
+      setNotesDialogOpen(false);
+      fetchOrder();
+    } else {
+      const err = await res.json();
+      alert(err.error || "Error al guardar notas");
+    }
+  }
+
   function openEditModal() {
     if (!order) return;
     setEditClientId(order.clientId);
@@ -221,7 +240,7 @@ export default function OrderDetailPage() {
     setEditSource(order.source);
     setEditSellerId(order.sellerId);
     setEditIgualadorId(order.igualadorId);
-    setEditNotes(order.notes || "");
+    setEditFormNotes(order.notes || "");
     setClientSearch(order.client.name);
     setShowEditModal(true);
 
@@ -248,7 +267,7 @@ export default function OrderDetailPage() {
           source: editSource,
           sellerId: editSource === "VENTAS" ? editSellerId : undefined,
           igualadorId: editIgualadorId,
-          notes: editNotes || undefined,
+          notes: editFormNotes || undefined,
         }),
       });
 
@@ -266,6 +285,7 @@ export default function OrderDetailPage() {
   }
 
   if (loading || !order) return <div className="p-8 text-center">Cargando pedido...</div>;
+
 
   const transitions = STATUS_TRANSITIONS[order.status] || [];
   const allowedTransitions = transitions.filter((t) => t.roles.includes(role));
@@ -323,12 +343,21 @@ export default function OrderDetailPage() {
         <Button variant="outline" onClick={handlePrintLabel}>
           <Printer className="h-4 w-4 mr-1" /> Etiqueta
         </Button>
+        {role === "ADMIN" && (
+          <Button variant="outline" onClick={() => {
+            setNotesContent(order.notes || "");
+            setNotesDialogOpen(true);
+          }}>
+            <Pencil className="h-4 w-4 mr-1" /> Notas / Factura
+          </Button>
+        )}
         {order.status === "LISTO" && order.client.email && role === "ADMIN" && (
           <Button variant="outline" onClick={handleResendEmail}>
             <Mail className="h-4 w-4 mr-1" /> Reenviar Email
           </Button>
         )}
       </div>
+
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Order Info */}
@@ -360,13 +389,27 @@ export default function OrderDetailPage() {
                   <dd>{formatMinutes(order.productionTimeMinutes)}</dd>
                 </div>
               )}
-              {order.notes && (
-                <div className="border-t pt-2">
-                  <dt className="text-slate-500 mb-1">Notas</dt>
-                  <dd className="bg-slate-50 dark:bg-slate-900 rounded p-2">{order.notes}</dd>
+              <div className="border-t pt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <dt className="text-slate-500">Notas</dt>
+                  {role === "ADMIN" && (
+                    <button
+                      onClick={() => {
+                        setNotesContent(order.notes || "");
+                        setNotesDialogOpen(true);
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    >
+                      <Pencil className="h-3 w-3" /> Editar
+                    </button>
+                  )}
                 </div>
-              )}
+                <dd className={`rounded p-2 text-sm ${order.notes ? "bg-slate-50 dark:bg-slate-900" : "text-slate-400 italic bg-slate-50/50 dark:bg-slate-900/50"}`}>
+                  {order.notes || "Sin notas"}
+                </dd>
+              </div>
             </dl>
+
           </CardContent>
         </Card>
 
@@ -489,6 +532,34 @@ export default function OrderDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Notes Dialog - available in any status (except CANCELADO) */}
+      <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Notas - {order.folio}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-slate-500">
+              Agrega el número de factura, nota de venta o cualquier otra observación.
+            </p>
+            <textarea
+              className="w-full min-h-[120px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950"
+              placeholder="Escribe las notas aquí..."
+              value={notesContent}
+              onChange={(e) => setNotesContent(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setNotesDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveNotes}>
+                Guardar Notas
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Modal */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
@@ -655,8 +726,8 @@ export default function OrderDetailPage() {
                 className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
                 rows={3}
                 placeholder="Notas adicionales..."
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
+                value={editFormNotes}
+                onChange={(e) => setEditFormNotes(e.target.value)}
               />
             </div>
 

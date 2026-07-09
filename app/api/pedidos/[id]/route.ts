@@ -70,14 +70,41 @@ export async function PATCH(
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-  if (NON_EDITABLE_STATUSES.includes(order.status)) {
-    return NextResponse.json(
-      { error: `No se puede editar un pedido en estado: ${order.status}` },
-      { status: 400 }
-    );
+  const body = await req.json();
+
+  // Check what fields are being edited
+  const keys = Object.keys(body);
+  const isNotesOnly = keys.length === 1 && keys[0] === "notes";
+
+  // Notes-only edits are allowed in any status except cancelled
+  if (isNotesOnly) {
+    // Allow notes edit in any non-terminal status, or even ENTREGADO
+    // Only block if order is CANCELADO
+    if (order.status === "CANCELADO") {
+      return NextResponse.json(
+        { error: "No se puede editar un pedido CANCELADO" },
+        { status: 400 }
+      );
+    }
+  } else {
+    // Production fields: block on terminal statuses
+    if (NON_EDITABLE_STATUSES.includes(order.status)) {
+      return NextResponse.json(
+        { error: `No se puede editar un pedido en estado: ${order.status}` },
+        { status: 400 }
+      );
+    }
+
+    // Production fields can only be edited when PENDIENTE
+    const isOnlyNotes = keys.every((k) => k === "notes");
+    if (!isOnlyNotes && order.status !== "PENDIENTE") {
+      return NextResponse.json(
+        { error: "Solo se pueden editar campos de producción en pedidos PENDIENTES" },
+        { status: 400 }
+      );
+    }
   }
 
-  const body = await req.json();
   const data = updateOrderSchema.parse(body);
 
   // Validar clientId si se intenta cambiar
