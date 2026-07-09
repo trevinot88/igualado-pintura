@@ -30,10 +30,17 @@ export const DEMO_REPORTES = {
       { name: "Pedro", solo: 85, conAyuda: 8 },
     ],
     sellerVolume: [
-      { name: "Zuzel", count: 45 },
-      { name: "Evelyn", count: 38 },
-      { name: "Reyna", count: 32 },
-      { name: "Administrador", count: 27 },
+      { name: "Tienda", count: 68, liters: 0 },
+      { name: "Zuzel", count: 45, liters: 0 },
+      { name: "Evelyn", count: 38, liters: 0 },
+      { name: "Reyna", count: 32, liters: 0 },
+      { name: "Administrador", count: 27, liters: 0 },
+    ],
+    sellerVolumeNoTienda: [
+      { name: "Zuzel", count: 45, liters: 0 },
+      { name: "Evelyn", count: 38, liters: 0 },
+      { name: "Reyna", count: 32, liters: 0 },
+      { name: "Administrador", count: 27, liters: 0 },
     ],
     crossAssistance: [
       { principal: "Enrique", helper: "Pedro", count: 17 },

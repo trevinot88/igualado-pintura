@@ -83,6 +83,7 @@ interface DashboardData {
     ordersBySource: { source: string; count: number }[];
     igualadorStacked: { name: string; solo: number; conAyuda: number }[];
     sellerVolume: { name: string; count: number; liters: number }[];
+    sellerVolumeNoTienda: { name: string; count: number; liters: number }[];
     crossAssistance: { principal: string; helper: string; count: number }[];
     litersByGroup: { groupName: string; totalLiters: number }[];
     litersByColor: { colorName: string; groupName: string; totalLiters: number }[];
@@ -113,10 +114,16 @@ export default function DashboardPage() {
   const { kpis, charts } = data;
   const queueAlert = kpis.queueCount >= 5;
 
-  // Para el donut: expandir la rebanada "Ventas" en una por vendedor
+  // Para el donut: expandir la rebanada "Ventas" en una por vendedor.
+  // Se usa sellerVolumeNoTienda para no incluir "Tienda" (MOSTRADOR ya tiene
+  // su propia rebanada en el donut y se atribuye aparte en volumen).
   const donutData = charts.ordersBySource.flatMap((s) => {
-    if (s.source === "VENTAS" && charts.sellerVolume.length > 0) {
-      return charts.sellerVolume.map((sv) => ({
+    if (
+      s.source === "VENTAS" &&
+      charts.sellerVolumeNoTienda &&
+      charts.sellerVolumeNoTienda.length > 0
+    ) {
+      return charts.sellerVolumeNoTienda.map((sv) => ({
         name: `${sv.name} · Ventas`,
         count: sv.count,
       }));

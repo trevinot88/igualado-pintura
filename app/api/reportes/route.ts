@@ -51,6 +51,7 @@ export async function GET(req: Request) {
     ordersBySource,
     operadorSolo,
     operadorConAyuda,
+    mostradorVolume,
     sellerVolume,
     crossAssistance,
     litersByGroupData,
@@ -128,12 +129,24 @@ export async function GET(req: Request) {
       },
     }),
 
-    // Chart: Volumen por Vendedor (físico) — pedidos y litros
+    // Chart: Volumen — ventas por MOSTRADOR se atribuyen a "Tienda"
+    prisma.order.aggregate({
+      _count: true,
+      _sum: { liters: true },
+      where: { source: "MOSTRADOR", status: { not: "CANCELADO" }, ...rangeWhere },
+    }),
+
+    // Chart: Volumen por Vendedor (físico) — excluyendo MOSTRADOR (ya es "Tienda")
     prisma.order.groupBy({
       by: ["vendedorId"],
       _count: true,
       _sum: { liters: true },
-      where: { vendedorId: { not: null }, status: { not: "CANCELADO" }, ...rangeWhere },
+      where: {
+        vendedorId: { not: null },
+        source: { not: "MOSTRADOR" },
+        status: { not: "CANCELADO" },
+        ...rangeWhere,
+      },
     }),
 
     // Tabla detalle: asistencia cruzada
@@ -322,7 +335,28 @@ export async function GET(req: Request) {
         count: s._count,
       })),
       igualadorStacked,
-      sellerVolume: sellerVolume
+      sellerVolume: [
+        // Ventas por MOSTRADOR se atribuyen a "Tienda"
+        ...(mostradorVolume._count > 0
+          ? [{
+              name: "Tienda",
+              count: mostradorVolume._count,
+              liters: mostradorVolume._sum.liters || 0,
+            }]
+          : []),
+        // Ventas por vendedor físico (excluyendo MOSTRADOR)
+        ...sellerVolume
+          .filter((s) => s.vendedorId)
+          .map((s) => ({
+            name: vendedorFisicoMap[s.vendedorId!] || "Desconocido",
+            count: s._count,
+            liters: s._sum.liters || 0,
+          }))
+          .sort((a, b) => b.count - a.count),
+      ],
+      // Volumen por vendedor sin "Tienda" — usado por el donut para expandir
+      // el canal VENTAS sin doble-contar los pedidos de mostrador.
+      sellerVolumeNoTienda: sellerVolume
         .filter((s) => s.vendedorId)
         .map((s) => ({
           name: vendedorFisicoMap[s.vendedorId!] || "Desconocido",
