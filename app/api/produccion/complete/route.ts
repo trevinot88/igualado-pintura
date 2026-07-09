@@ -110,13 +110,21 @@ export async function POST(req: Request) {
     validatedAyudanteFisicoId = ayudante.id;
   }
 
+  // Calculate production time automatically if not provided.
+  // Fallback: si startedAt falta (data vieja o flujo sin "start"),
+  // usar createdAt para que siempre haya un tiempo registrado.
+  const calculatedTime = productionTimeMinutes ||
+    (order.startedAt
+      ? Math.round((Date.now() - order.startedAt.getTime()) / 60000)
+      : Math.round((Date.now() - order.createdAt.getTime()) / 60000));
+
   // Complete the order
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
     data: {
       status: "LISTO",
       completedAt: new Date(),
-      productionTimeMinutes: productionTimeMinutes || null,
+      productionTimeMinutes: calculatedTime,
       ayudanteFisicoId: validatedAyudanteFisicoId,
     },
     include: {

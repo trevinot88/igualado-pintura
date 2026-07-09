@@ -36,9 +36,16 @@ export async function GET(req: Request) {
 
   const rangeWhere = from ? { createdAt: dateFilter } : {};
 
+  // Filtro por completedAt para el KPI de tiempo de igualación:
+  // promediamos los pedidos que se COMPLETARON en el rango seleccionado,
+  // no los que se crearon en el rango (pueden completarse después).
+  const completedAtFilter: Record<string, unknown> = { not: null };
+  if (from) completedAtFilter.gte = new Date(from);
+  if (to) completedAtFilter.lte = new Date(to);
+
   const [
     queueCount,
-    avgProductionTime,
+    productionTimeOrders,
     todayCompleted,
     todayWithHelp,
     ordersBySource,
@@ -55,12 +62,19 @@ export async function GET(req: Request) {
     }),
 
     // KPI 2 – Tiempo promedio de igualación (rango seleccionado)
-    prisma.order.aggregate({
-      _avg: { productionTimeMinutes: true },
+    // Se consultan pedidos completados en el rango y se calcula el promedio
+    // en JS para poder inferir tiempos faltantes a partir de startedAt/createdAt.
+    prisma.order.findMany({
       where: {
-        productionTimeMinutes: { not: null },
+        completedAt: completedAtFilter,
         status: { not: "CANCELADO" },
-        ...rangeWhere,
+      },
+      select: {
+        id: true,
+        productionTimeMinutes: true,
+        startedAt: true,
+        completedAt: true,
+        createdAt: true,
       },
     }),
 
@@ -227,6 +241,48 @@ export async function GET(req: Request) {
       ? Math.round((todayWithHelp / todayCompleted) * 100)
       : 0;
 
+  // ── Compute avg production time with fallback ──
+  // Para cada pedido completado: usar productionTimeMinutes si existe;
+  // si no, calcularlo desde startedAt→completedAt, o createdAt→completedAt
+  // como último recurso. Así funciona con data existente y nueva.
+  const timesToBackfill: { id: string; minutes: number }[] = [];
+  const validTimes: number[] = [];
+
+  for (const o of productionTimeOrders) {
+    let minutes = o.productionTimeMinutes;
+
+    if (minutes == null && o.completedAt) {
+      const start = o.startedAt ?? o.createdAt;
+      const diffMs = o.completedAt.getTime() - start.getTime();
+      if (diffMs > 0) {
+        minutes = Math.round(diffMs / 60000);
+        timesToBackfill.push({ id: o.id, minutes });
+      }
+    }
+
+    if (minutes != null && minutes > 0) {
+      validTimes.push(minutes);
+    }
+  }
+
+  const computedAvgProductionTime =
+    validTimes.length > 0
+      ? Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length)
+      : 0;
+
+  // Backfill no bloqueante: persistir productionTimeMinutes calculado para
+  // pedidos que no lo tenían (mejora progresivamente la data sin migración).
+  if (timesToBackfill.length > 0) {
+    prisma.$transaction(
+      timesToBackfill.map((t) =>
+        prisma.order.update({
+          where: { id: t.id },
+          data: { productionTimeMinutes: t.minutes },
+        })
+      )
+    ).catch(() => {});
+  }
+
   // Litros por grupo de color - calcular suma de liters por grupo
   const litersByGroup = litersByGroupData
     .map((g) => ({
@@ -255,9 +311,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     kpis: {
       queueCount,
-      avgProductionTime: Math.round(
-        avgProductionTime._avg.productionTimeMinutes || 0
-      ),
+      avgProductionTime: computedAvgProductionTime,
       collaborationRateToday,
       todayCompleted,
       todayWithHelp,

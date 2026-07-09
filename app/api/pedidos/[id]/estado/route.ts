@@ -99,15 +99,16 @@ export async function PATCH(
   } else if (newStatus === "LISTO") {
     updateData.completedAt = new Date();
     updateData.pausedAt = null;
-    if (order.startedAt) {
-      // Calcular tiempo de producción real, restando el tiempo que estuvo pausado
-      const totalMs = Date.now() - order.startedAt.getTime();
-      const pausedMs = order.pausedAt
-        ? Date.now() - order.pausedAt.getTime()
-        : 0;
-      const effectiveMs = Math.max(0, totalMs - pausedMs);
-      updateData.productionTimeMinutes = Math.round(effectiveMs / 60000);
-    }
+    // Calcular tiempo de producción real, restando el tiempo que estuvo pausado.
+    // Fallback: si startedAt falta (data vieja o flujo sin "start"),
+    // usar createdAt para que siempre haya un tiempo registrado.
+    const startTime = order.startedAt ?? order.createdAt;
+    const totalMs = Date.now() - startTime.getTime();
+    const pausedMs = order.pausedAt
+      ? Date.now() - order.pausedAt.getTime()
+      : 0;
+    const effectiveMs = Math.max(0, totalMs - pausedMs);
+    updateData.productionTimeMinutes = Math.round(effectiveMs / 60000);
   } else if (newStatus === "PAUSADO") {
     updateData.pausedAt = new Date();
   } else if (newStatus === "FACTURADO") {
