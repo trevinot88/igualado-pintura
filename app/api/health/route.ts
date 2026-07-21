@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkGreenApiStatus } from "@/lib/notifications";
 
 export async function GET() {
   const checks: Record<string, string> = {};
@@ -8,6 +9,8 @@ export async function GET() {
   checks.AUTH_SECRET = process.env.AUTH_SECRET ? "SET" : "MISSING";
   checks.NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? "MISSING";
   checks.NODE_ENV = process.env.NODE_ENV ?? "MISSING";
+  checks.GREEN_API_INSTANCE_ID = process.env.GREEN_API_INSTANCE_ID ? "SET" : "MISSING";
+  checks.GREEN_API_TOKEN = process.env.GREEN_API_TOKEN ? "SET" : "MISSING";
 
   // Test DB connection
   try {
@@ -30,6 +33,22 @@ export async function GET() {
     checks.PRISMA = "OK - " + count + " users";
   } catch (e: unknown) {
     checks.PRISMA = "FAILED: " + (e instanceof Error ? e.message : String(e));
+  }
+
+  // Test Green API (WhatsApp) instance state
+  try {
+    const status = await checkGreenApiStatus();
+    if (!status.configured) {
+      checks.GREEN_API = "NOT_CONFIGURED";
+    } else if (status.authorized) {
+      checks.GREEN_API = "OK - authorized (stateInstance=" + status.stateInstance + ")";
+    } else if (status.authorized === false) {
+      checks.GREEN_API = "UNAUTHORIZED (stateInstance=" + (status.stateInstance ?? "unknown") + ") — reescanear QR";
+    } else {
+      checks.GREEN_API = "ERROR: " + (status.error ?? "desconocido");
+    }
+  } catch (e: unknown) {
+    checks.GREEN_API = "FAILED: " + (e instanceof Error ? e.message : String(e));
   }
 
   return NextResponse.json(checks);

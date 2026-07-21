@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { requireRole, canTransition } from "@/lib/permissions";
 import { sendOrderReadyEmail } from "@/lib/email";
+import { sendWhatsAppNotification } from "@/lib/notifications";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -33,7 +34,7 @@ export async function PATCH(
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
-      client: { select: { name: true, email: true } },
+      client: { select: { name: true, email: true, phone: true } },
       location: { select: { name: true } },
     },
   });
@@ -131,6 +132,17 @@ export async function PATCH(
     to: newStatus,
     folio: order.folio,
   });
+
+  // Send WhatsApp notification when order is ready (async, non-blocking)
+  if (newStatus === "LISTO" && order.client.phone) {
+    sendWhatsAppNotification(
+      order.client.phone,
+      order.folio,
+      order.client.name,
+      id,
+      order.colorName
+    ).catch((err) => console.error("[WhatsApp] Error sending notification:", err));
+  }
 
   // Send email notification when order is ready (async, non-blocking)
   if (newStatus === "LISTO" && order.client.email) {
