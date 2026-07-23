@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   Menu,
   Code2,
+  MessageCircle,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
   { label: "Clientes", href: "/dashboard/clientes", icon: Users, roles: ["ADMIN", "FACTURACION"] },
   { label: "Códigos de IG", href: "/dashboard/codigos-ig", icon: Code2, roles: ["ADMIN"] },
   { label: "Usuarios", href: "/dashboard/usuarios", icon: UserCircle, roles: ["ADMIN"] },
+  { label: "WhatsApp", href: "/dashboard/whatsapp", icon: MessageCircle, roles: ["ADMIN"] },
   { label: "Auditoría", href: "/dashboard/audit", icon: ScrollText, roles: ["ADMIN"] },
 ];
 
