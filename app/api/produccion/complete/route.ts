@@ -154,8 +154,8 @@ export async function POST(req: Request) {
     // Continue even if label fails
   }
 
-  // TRIGGER 2: Send WhatsApp notification
-  if (order.client.phone && order.source === "MOSTRADOR") {
+  // TRIGGER 2: Send WhatsApp notification (para todos los orígenes)
+  if (order.client.phone) {
     try {
       await sendWhatsAppNotification(
         order.client.phone,
