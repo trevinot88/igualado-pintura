@@ -200,6 +200,26 @@ model Label {
   @@index([orderId])
 }
 
+// ─── WhatsApp (Baileys) session persistence ───────────────────
+// Almacena las credenciales y claves de Baileys en PostgreSQL para
+// sobrevivir a redeploys en Render (sistema de archivos efímero).
+
+model WhatsAppSession {
+  id        String   @id @default("singleton")
+  creds     Json
+  updatedAt DateTime @updatedAt
+}
+
+model WhatsAppKey {
+  type      String
+  keyId     String
+  data      Json
+  updatedAt DateTime @updatedAt
+
+  @@id([type, keyId])
+  @@index([type])
+}
+
 model AuditLog {
   id        String      @id @default(cuid())
   userId    String?

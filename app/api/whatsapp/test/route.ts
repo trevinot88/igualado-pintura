@@ -7,7 +7,7 @@ import { z } from "zod";
 
 /**
  * GET /api/whatsapp/test
- * Devuelve el estado de la instancia de Green API (sin enviar mensaje).
+ * Devuelve el estado de la conexión de WhatsApp (Baileys).
  * Solo ADMIN.
  */
 export async function GET() {
@@ -36,28 +36,15 @@ export async function POST(req: Request) {
   const body = await req.json();
   const { phone } = testSchema.parse(body);
 
-  // Primero verifica el estado de la instancia
+  // Primero verifica el estado de la conexión
   const status = await checkGreenApiStatus();
 
-  if (!status.configured) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Green API no está configurado. Faltan GREEN_API_INSTANCE_ID o GREEN_API_TOKEN.",
-        status,
-      },
-      { status: 500 }
-    );
-  }
-
-  if (status.authorized === false) {
+  if (!status.connected) {
     return NextResponse.json(
       {
         success: false,
         error:
-          "La instancia de Green API no está autorizada (stateInstance=" +
-          status.stateInstance +
-          "). Escanea el código QR de nuevo.",
+          "WhatsApp no está conectado. Escanea el código QR desde /api/whatsapp/qr.",
         status,
       },
       { status: 400 }
@@ -75,7 +62,7 @@ export async function POST(req: Request) {
 
   if (!result.success) {
     return NextResponse.json(
-      { success: false, error: result.error, chatId: result.chatId, apiResponse: result.apiResponse },
+      { success: false, error: result.error, chatId: result.chatId },
       { status: 400 }
     );
   }

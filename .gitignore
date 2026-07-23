@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# WhatsApp (Baileys) — datos de sesión legacy (ahora se usa PostgreSQL)
+# Se mantiene por si quedan archivos residuales de la versión anterior.
+/auth_info_baileys

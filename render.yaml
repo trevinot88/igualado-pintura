@@ -16,9 +16,5 @@ services:
         sync: false
       - key: EMAIL_FROM
         value: "DYRLO <noreply@dyrlo.com>"
-      - key: GREEN_API_INSTANCE_ID
-        sync: false
-      - key: GREEN_API_TOKEN
-        sync: false
       - key: NODE_ENV
         value: production
