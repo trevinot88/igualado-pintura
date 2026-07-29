@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Clock, Factory, Handshake } from "lucide-react";
+import { Clock, Factory, Handshake, Trophy } from "lucide-react";
 import { ORDER_SOURCE_LABELS } from "@/lib/utils";
 import {
   BarChart,
@@ -30,7 +30,15 @@ const GROUP_COLORS: Record<string, string> = {
 
 const GROUP_COLORS_ARRAY = ["#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#10b981", "#06b6d4", "#fb923c", "#a3e635"];
 
+// Paleta para el ranking de clientes (gradiente azul→verde)
+const CLIENT_COLORS = [
+  "#1e40af", "#1d4ed8", "#2563eb", "#3b82f6", "#0ea5e9",
+  "#06b6d4", "#0891b2", "#0d9488", "#10b981", "#22c55e",
+  "#16a34a", "#15803d", "#84cc16", "#65a30d", "#4d7c0f",
+];
+
 type Period = "dia" | "semana" | "mes" | "anio";
+type FilterMode = "rapido" | "mes" | "rango";
 
 const PERIOD_LABELS: Record<Period, string> = {
   dia: "Hoy",
@@ -39,13 +47,15 @@ const PERIOD_LABELS: Record<Period, string> = {
   anio: "Este Año",
 };
 
+const MONTHS_ES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
 function getPeriodDates(period: Period): { from: string; to: string } {
   const now = new Date();
-  // Instantes ISO precisos en hora LOCAL del navegador → evita el desfase
-  // de zona horaria (un "2026-06-20" suelto se interpretaba como medianoche UTC).
   const startOfDay = (d: Date) =>
     new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).toISOString();
-  // Fin del día de HOY: garantiza que los pedidos creados hoy siempre cuenten.
   const to = new Date(
     now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999
   ).toISOString();
@@ -54,8 +64,8 @@ function getPeriodDates(period: Period): { from: string; to: string } {
     case "dia":
       return { from: startOfDay(now), to };
     case "semana": {
-      const day = now.getDay(); // 0=Dom, 1=Lun…
-      const diff = day === 0 ? -6 : 1 - day; // lunes de esta semana
+      const day = now.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
       const start = new Date(now);
       start.setDate(now.getDate() + diff);
       return { from: startOfDay(start), to };
@@ -69,6 +79,25 @@ function getPeriodDates(period: Period): { from: string; to: string } {
       return { from: startOfDay(start), to };
     }
   }
+}
+
+function getMonthDates(year: number, month: number): { from: string; to: string } {
+  const from = new Date(year, month, 1, 0, 0, 0, 0).toISOString();
+  const to = new Date(year, month + 1, 0, 23, 59, 59, 999).toISOString();
+  return { from, to };
+}
+
+function getRangeDates(fromStr: string, toStr: string): { from: string; to: string } {
+  const fromDate = new Date(fromStr + "T00:00:00");
+  const toDate = new Date(toStr + "T23:59:59.999");
+  return { from: fromDate.toISOString(), to: toDate.toISOString() };
+}
+
+function toDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 interface DashboardData {
@@ -87,22 +116,54 @@ interface DashboardData {
     crossAssistance: { principal: string; helper: string; count: number }[];
     litersByGroup: { groupName: string; totalLiters: number }[];
     litersByColor: { colorName: string; groupName: string; totalLiters: number }[];
+    litersByClient: { name: string; totalLiters: number; orders: number }[];
   };
 }
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [filterMode, setFilterMode] = useState<FilterMode>("rapido");
   const [period, setPeriod] = useState<Period>("semana");
 
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
+
+  const todayStr = toDateString(now);
+  const weekAgo = new Date(now);
+  weekAgo.setDate(now.getDate() - 6);
+  const [customFrom, setCustomFrom] = useState<string>(toDateString(weekAgo));
+  const [customTo, setCustomTo] = useState<string>(todayStr);
+
+  // Generar lista de años (desde 2024 hasta el año actual)
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years: number[] = [];
+    for (let y = currentYear; y >= 2024; y--) years.push(y);
+    return years;
+  }, []);
+
   useEffect(() => {
-    const { from, to } = getPeriodDates(period);
+    let from: string;
+    let to: string;
+
+    if (filterMode === "rapido") {
+      ({ from, to } = getPeriodDates(period));
+    } else if (filterMode === "mes") {
+      ({ from, to } = getMonthDates(selectedYear, selectedMonth));
+    } else {
+      // rango
+      if (!customFrom || !customTo) return;
+      ({ from, to } = getRangeDates(customFrom, customTo));
+    }
+
     const params = new URLSearchParams();
     params.set("from", from);
     params.set("to", to);
     fetch(`/api/reportes?${params}`)
       .then((r) => r.json())
       .then(setData);
-  }, [period]);
+  }, [filterMode, period, selectedMonth, selectedYear, customFrom, customTo]);
 
   if (!data)
     return (
@@ -114,9 +175,6 @@ export default function DashboardPage() {
   const { kpis, charts } = data;
   const queueAlert = kpis.queueCount >= 5;
 
-  // Para el donut: expandir la rebanada "Ventas" en una por vendedor.
-  // Se usa sellerVolumeNoTienda para no incluir "Tienda" (MOSTRADOR ya tiene
-  // su propia rebanada en el donut y se atribuye aparte en volumen).
   const donutData = charts.ordersBySource.flatMap((s) => {
     if (
       s.source === "VENTAS" &&
@@ -131,26 +189,107 @@ export default function DashboardPage() {
     return [{ name: ORDER_SOURCE_LABELS[s.source] || s.source, count: s.count }];
   });
 
+  // Etiqueta legible del rango activo
+  const rangeLabel = (() => {
+    if (filterMode === "rapido") return PERIOD_LABELS[period];
+    if (filterMode === "mes") return `${MONTHS_ES[selectedMonth]} ${selectedYear}`;
+    return `${customFrom} → ${customTo}`;
+  })();
+
   return (
     <div className="space-y-6">
       {/* ── Header + Filtros ── */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex gap-2">
-          {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={cn(
-                "px-4 py-1.5 rounded-full text-sm font-medium border transition-colors",
-                period === p
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:text-blue-600"
-              )}
-            >
-              {PERIOD_LABELS[p]}
-            </button>
-          ))}
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Rango activo: <span className="font-medium text-slate-500">{rangeLabel}</span>
+          </p>
+        </div>
+
+        <div className="flex flex-col items-end gap-2">
+          {/* Selector de modo de filtro */}
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+            {([
+              { key: "rapido", label: "Rápido" },
+              { key: "mes", label: "Por Mes" },
+              { key: "rango", label: "Por Rango" },
+            ] as { key: FilterMode; label: string }[]).map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setFilterMode(m.key)}
+                className={cn(
+                  "px-3 py-1 rounded-md text-sm font-medium transition-colors",
+                  filterMode === m.key
+                    ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Controles según el modo */}
+          {filterMode === "rapido" && (
+            <div className="flex gap-2">
+              {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                    period === p
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:text-blue-600"
+                  )}
+                >
+                  {PERIOD_LABELS[p]}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filterMode === "mes" && (
+            <div className="flex gap-2 items-center">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {MONTHS_ES.map((m, i) => (
+                  <option key={i} value={i}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {filterMode === "rango" && (
+            <div className="flex gap-2 items-center text-sm">
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-slate-400 font-medium">→</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -414,6 +553,54 @@ export default function DashboardPage() {
           ) : (
             <p className="text-center text-slate-500 pt-16">
               Sin datos en el rango seleccionado
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── 5. Ranking de Clientes — Litros por Cliente (Top 15) ── */}
+      <Card>
+        <div className="flex items-center gap-2 px-6 pt-6 pb-1">
+          <Trophy className="h-5 w-5 text-amber-500" />
+          <CardTitle>Ranking de Clientes — Litros Igualados (Top 15)</CardTitle>
+        </div>
+        <p className="px-6 text-xs text-slate-400 mb-2">
+          Los 15 clientes con mayor volumen de pintura igualada en el rango seleccionado
+        </p>
+        <CardContent className="h-[520px] p-4">
+          {charts.litersByClient && charts.litersByClient.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={charts.litersByClient}
+                layout="vertical"
+                margin={{ left: 10, right: 40, top: 4, bottom: 4 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 12 }} unit=" L" />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 11 }}
+                  width={200}
+                  interval={0}
+                />
+                <Tooltip
+                  formatter={(v: unknown) => [`${Number(v).toFixed(1)} L`, "Litros"]}
+                  labelFormatter={(_, payload) => {
+                    const item = payload?.[0]?.payload as { orders?: number } | undefined;
+                    return item?.orders ? `${item.orders} pedido(s)` : "";
+                  }}
+                />
+                <Bar dataKey="totalLiters" name="Litros" radius={[0, 4, 4, 0]}>
+                  {charts.litersByClient.map((_, i) => (
+                    <Cell key={i} fill={CLIENT_COLORS[i % CLIENT_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-center text-slate-500 pt-48">
+              Sin datos de clientes en el rango seleccionado
             </p>
           )}
         </CardContent>

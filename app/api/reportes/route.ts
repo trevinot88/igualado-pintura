@@ -56,6 +56,7 @@ export async function GET(req: Request) {
     crossAssistance,
     litersByGroupData,
     litersByColorData,
+    litersByClientData,
   ] = await Promise.all([
     // KPI 1 – Pedidos en cola (siempre en tiempo real)
     prisma.order.count({
@@ -180,6 +181,16 @@ export async function GET(req: Request) {
       where: { status: { not: "CANCELADO" }, ...rangeWhere },
       orderBy: { _sum: { liters: "desc" } },
       take: 20,
+    }),
+
+    // Litros por Cliente (Top 15 — ranking de clientes que más consumen)
+    prisma.order.groupBy({
+      by: ["clientId"],
+      _sum: { liters: true },
+      _count: true,
+      where: { status: { not: "CANCELADO" }, ...rangeWhere },
+      orderBy: { _sum: { liters: "desc" } },
+      take: 15,
     }),
   ]);
 
@@ -321,6 +332,36 @@ export async function GET(req: Request) {
     totalLiters: c._sum.liters || 0,
   }));
 
+  // ── Litros por Cliente (Top 15) — enriquecer con nombre del cliente ──
+  const clientIds = litersByClientData
+    .map((c) => c.clientId)
+    .filter((id): id is string => Boolean(id));
+
+  const clientsMap: Record<string, { name: string; company: string | null }> = {};
+  if (clientIds.length > 0) {
+    const clients = await prisma.client.findMany({
+      where: { id: { in: clientIds } },
+      select: { id: true, name: true, company: true },
+    });
+    for (const c of clients) {
+      clientsMap[c.id] = { name: c.name, company: c.company };
+    }
+  }
+
+  const litersByClient = litersByClientData
+    .filter((c) => c.clientId)
+    .map((c) => {
+      const info = clientsMap[c.clientId!] || { name: "Desconocido", company: null };
+      const label = info.company
+        ? `${info.name} (${info.company})`
+        : info.name;
+      return {
+        name: label,
+        totalLiters: c._sum.liters || 0,
+        orders: c._count,
+      };
+    });
+
   return NextResponse.json({
     kpis: {
       queueCount,
@@ -373,6 +414,7 @@ export async function GET(req: Request) {
         .sort((a, b) => b.count - a.count),
       litersByGroup,
       litersByColor,
+      litersByClient,
     },
   });
 }

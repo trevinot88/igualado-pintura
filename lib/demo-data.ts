@@ -63,6 +63,23 @@ export const DEMO_REPORTES = {
       { colorName: "Verde Esmeralda", groupName: "Especiales", totalLiters: 7.0 },
       { colorName: "Azul Eléctrico", groupName: "Especiales", totalLiters: 5.0 },
     ],
+    litersByClient: [
+      { name: "Constructora Jiménez", totalLiters: 85.5, orders: 22 },
+      { name: "Roberto Sánchez", totalLiters: 64.0, orders: 18 },
+      { name: "Decoraciones Ramírez", totalLiters: 52.5, orders: 15 },
+      { name: "Fernando Torres", totalLiters: 41.0, orders: 12 },
+      { name: "Pinturería El Sol", totalLiters: 38.0, orders: 10 },
+      { name: "Laura Jiménez", totalLiters: 29.5, orders: 9 },
+      { name: "Materiales y Pinturas del Centro", totalLiters: 24.0, orders: 7 },
+      { name: "Sofía Ramírez", totalLiters: 18.5, orders: 6 },
+      { name: "Jorge Mendoza", totalLiters: 15.0, orders: 5 },
+      { name: "Construcciones Modernas SA", totalLiters: 12.5, orders: 4 },
+      { name: "María Fernández", totalLiters: 9.0, orders: 3 },
+      { name: "Taller Automotriz Rivera", totalLiters: 7.5, orders: 3 },
+      { name: "Carlos Vega", totalLiters: 6.0, orders: 2 },
+      { name: "Diseños & Color", totalLiters: 4.5, orders: 2 },
+      { name: "Ana Beltrán", totalLiters: 3.0, orders: 1 },
+    ],
   },
 };
 
