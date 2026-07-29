@@ -19,7 +19,9 @@ const updateOrderSchema = z.object({
 });
 
 // Estados terminales en los que ya no se puede editar un pedido
-const NON_EDITABLE_STATUSES = ["ENTREGADO", "CANCELADO"];
+// CANCELADO es el único estado bloqueado. ENTREGADO se permite editar
+// para poder corregir errores de captura (ej: litros mal capturados).
+const NON_EDITABLE_STATUSES = ["CANCELADO"];
 
 export async function GET(
   _req: Request,
@@ -75,6 +77,7 @@ export async function PATCH(
   // Check what fields are being edited
   const keys = Object.keys(body);
   const isNotesOnly = keys.length === 1 && keys[0] === "notes";
+  const isLitersOnly = keys.length === 1 && keys[0] === "liters";
 
   // Notes-only edits are allowed in any status except cancelled
   if (isNotesOnly) {
@@ -86,20 +89,20 @@ export async function PATCH(
         { status: 400 }
       );
     }
-  } else {
-    // Production fields: block on terminal statuses
-    if (NON_EDITABLE_STATUSES.includes(order.status)) {
+  } else if (isLitersOnly && user.role === "ADMIN") {
+    // Allow ADMIN to correct liters in any status except CANCELADO
+    // (useful for fixing data entry errors in delivered orders)
+    if (order.status === "CANCELADO") {
       return NextResponse.json(
-        { error: `No se puede editar un pedido en estado: ${order.status}` },
+        { error: "No se puede editar un pedido CANCELADO" },
         { status: 400 }
       );
     }
-
-    // Production fields can only be edited when PENDIENTE
-    const isOnlyNotes = keys.every((k) => k === "notes");
-    if (!isOnlyNotes && order.status !== "PENDIENTE") {
+  } else {
+    // Only block on truly terminal status (CANCELADO)
+    if (NON_EDITABLE_STATUSES.includes(order.status)) {
       return NextResponse.json(
-        { error: "Solo se pueden editar campos de producción en pedidos PENDIENTES" },
+        { error: `No se puede editar un pedido en estado: ${order.status}` },
         { status: 400 }
       );
     }

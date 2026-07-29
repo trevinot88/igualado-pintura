@@ -116,7 +116,7 @@ const STATUS_TRANSITIONS: Record<string, { next: string; label: string; roles: s
   ],
 };
 
-const NON_EDITABLE_STATUSES = ["ENTREGADO", "CANCELADO"];
+const NON_EDITABLE_STATUSES = ["CANCELADO"];
 
 const SOURCES = [
   { value: "MOSTRADOR", label: "Mostrador" },
@@ -140,6 +140,9 @@ export default function OrderDetailPage() {
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showLitersCorrection, setShowLitersCorrection] = useState(false);
+  const [correctionLiters, setCorrectionLiters] = useState(1);
+  const [savingCorrection, setSavingCorrection] = useState(false);
   const [saving, setSaving] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [groups, setGroups] = useState<ColorGroup[]>([]);
@@ -284,12 +287,43 @@ export default function OrderDetailPage() {
     setSaving(false);
   }
 
+  function openLitersCorrection() {
+    if (!order) return;
+    setCorrectionLiters(order.liters);
+    setShowLitersCorrection(true);
+  }
+
+  async function handleSaveLitersCorrection() {
+    setSavingCorrection(true);
+    try {
+      const res = await fetch(`/api/pedidos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          liters: correctionLiters,
+        }),
+      });
+
+      if (res.ok) {
+        setShowLitersCorrection(false);
+        fetchOrder();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Error al corregir litros");
+      }
+    } catch {
+      alert("Error al corregir litros");
+    }
+    setSavingCorrection(false);
+  }
+
   if (loading || !order) return <div className="p-8 text-center">Cargando pedido...</div>;
 
 
   const transitions = STATUS_TRANSITIONS[order.status] || [];
   const allowedTransitions = transitions.filter((t) => t.roles.includes(role));
   const canEdit = sessionStatus === "authenticated" && role === "ADMIN" && !NON_EDITABLE_STATUSES.includes(order.status);
+  const canCorrectLiters = sessionStatus === "authenticated" && role === "ADMIN" && order.status === "ENTREGADO";
 
   const timeline = [
     { label: "Creado", date: order.createdAt, done: true },
@@ -340,6 +374,11 @@ export default function OrderDetailPage() {
             <Pencil className="h-4 w-4 mr-1" /> Editar Pedido
           </Button>
         )}
+        {canCorrectLiters && (
+          <Button variant="outline" onClick={openLitersCorrection}>
+            <Pencil className="h-4 w-4 mr-1" /> Corregir Litros
+          </Button>
+        )}
         <Button variant="outline" onClick={handlePrintLabel}>
           <Printer className="h-4 w-4 mr-1" /> Etiqueta
         </Button>
@@ -375,7 +414,7 @@ export default function OrderDetailPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-slate-500">Litros</dt>
-                <dd>{order.liters}L</dd>
+                <dd className="font-medium">{order.liters}L</dd>
               </div>
               {order.igualacionLine && (
                 <div className="flex justify-between">
@@ -561,6 +600,54 @@ export default function OrderDetailPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Liters Correction Dialog - for ENTREGADO orders */}
+      <Dialog open={showLitersCorrection} onOpenChange={setShowLitersCorrection}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Corregir Litros - {order.folio}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-200">
+              <p className="font-semibold">⚠️ Corrección de datos</p>
+              <p className="mt-1">
+                Este pedido ya fue entregado. Estás corrigiendo un error de captura.
+                El cambio quedará registrado en el historial de auditoría.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Litros actuales</label>
+              <div className="text-lg font-bold text-slate-500">{order.liters} L</div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nuevos litros (valor correcto)</label>
+              <Input
+                type="number"
+                step="0.001"
+                min="0.001"
+                value={correctionLiters}
+                onChange={(e) => setCorrectionLiters(parseFloat(e.target.value) || 0)}
+              />
+              {correctionLiters > 50 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  ⚠️ Cantidad inusualmente alta. Verifica que sea correcta.
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowLitersCorrection(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSaveLitersCorrection}
+                disabled={savingCorrection || correctionLiters <= 0}
+              >
+                {savingCorrection ? "Guardando..." : "Guardar Corrección"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Modal */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -652,11 +739,16 @@ export default function OrderDetailPage() {
               <label className="text-sm font-medium">Litros</label>
               <Input
                 type="number"
-                step="0.5"
-                min="0.5"
+                step="0.001"
+                min="0.001"
                 value={editLiters}
                 onChange={(e) => setEditLiters(parseFloat(e.target.value) || 0)}
               />
+              {editLiters > 50 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  ⚠️ Cantidad inusualmente alta. Verifica que sea correcta.
+                </p>
+              )}
             </div>
 
             {/* Canal */}
