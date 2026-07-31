@@ -11,6 +11,7 @@ import {
   sendWhatsAppMessage,
   getWhatsAppStatus,
   connectWhatsApp,
+  hasSavedCredentials,
 } from "./whatsapp-service";
 import type { WhatsAppStatus } from "./whatsapp-types";
 
@@ -20,17 +21,34 @@ export type GreenApiStatus = WhatsAppStatus;
 /**
  * Consulta el estado de la conexión de WhatsApp (Baileys).
  * Reemplaza a `checkGreenApiStatus()` de GREEN-API.
+ *
+ * Si el socket está nulo pero existen credenciales guardadas (sesión
+ * previa), dispara la reconexión automática en lugar de reportar que
+ * se necesita escanear un QR.
  */
 export async function checkGreenApiStatus(): Promise<GreenApiStatus> {
-  // En producción, asegurar que la conexión esté iniciada
-  if (process.env.NODE_ENV === "production") {
-    void connectWhatsApp().catch(() => {
-      // El error se registra dentro del servicio
-    });
+  const status = getWhatsAppStatus();
+
+  // Si no está conectado pero hay credenciales guardadas, disparar
+  // reconexión automática (por ejemplo tras un reinicio del servidor).
+  if (!status.connected) {
+    void (async () => {
+      try {
+        if (await hasSavedCredentials()) {
+          console.log(
+            "[WhatsApp] checkGreenApiStatus: credenciales detectadas, reconectando..."
+          );
+          await connectWhatsApp();
+        }
+      } catch (err) {
+        console.error("[WhatsApp] Error en reconexión proactiva:", err);
+      }
+    })();
   }
 
-  return getWhatsAppStatus();
+  return status;
 }
+
 
 /**
  * Envía un mensaje WhatsApp usando Baileys cuando el pedido está listo.

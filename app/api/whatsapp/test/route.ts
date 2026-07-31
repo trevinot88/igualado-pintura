@@ -1,9 +1,11 @@
 import { auth } from "@/lib/auth";
 import { requireRole } from "@/lib/permissions";
 import { checkGreenApiStatus, sendTestWhatsAppMessage } from "@/lib/notifications";
+import { hasSavedCredentials, connectWhatsApp } from "@/lib/whatsapp-service";
 import { logAudit } from "@/lib/audit";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+
 
 /**
  * GET /api/whatsapp/test
@@ -36,15 +38,37 @@ export async function POST(req: Request) {
   const body = await req.json();
   const { phone } = testSchema.parse(body);
 
-  // Primero verifica el estado de la conexión
+  // Verificar el estado de la conexión
   const status = await checkGreenApiStatus();
 
-  if (!status.connected) {
+  // Si no está conectado pero hay credenciales guardadas, esperar la
+  // reconexión automática antes de fallar con el mensaje de QR.
+  if (!status.connected && (await hasSavedCredentials())) {
+    console.log(
+      "[WhatsApp/test] Sesión guardada detectada. Esperando reconexión automática..."
+    );
+    await connectWhatsApp();
+    // Dar oportunidad a que el socket abra la conexión
+    await new Promise((r) => setTimeout(r, 2000));
+
+    const retryStatus = await checkGreenApiStatus();
+    if (!retryStatus.connected) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Se detectaron credenciales guardadas y se está reconectando. Intenta de nuevo en unos segundos.",
+          status: retryStatus,
+        },
+        { status: 400 }
+      );
+    }
+  } else if (!status.connected) {
     return NextResponse.json(
       {
         success: false,
         error:
-          "WhatsApp no está conectado. Escanea el código QR desde /api/whatsapp/qr.",
+          "WhatsApp no está conectado y no hay sesión guardada. Escanea el código QR desde /api/whatsapp/qr.",
         status,
       },
       { status: 400 }
@@ -53,6 +77,7 @@ export async function POST(req: Request) {
 
   // Enviar mensaje de prueba
   const result = await sendTestWhatsAppMessage(phone);
+
 
   await logAudit(user.id, "WHATSAPP_SENT", "System", undefined, {
     phone,
