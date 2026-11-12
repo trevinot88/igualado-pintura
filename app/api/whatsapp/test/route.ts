@@ -48,16 +48,18 @@ export async function POST(req: Request) {
       "[WhatsApp/test] Sesión guardada detectada. Esperando reconexión automática..."
     );
     await connectWhatsApp();
-    // Dar oportunidad a que el socket abra la conexión
-    await new Promise((r) => setTimeout(r, 2000));
-
-    const retryStatus = await checkGreenApiStatus();
+    // Esperar (polling) hasta ~12s a que el socket abra la conexión
+    let retryStatus = await checkGreenApiStatus();
+    for (let i = 0; i < 12 && !retryStatus.connected; i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      retryStatus = await checkGreenApiStatus();
+    }
     if (!retryStatus.connected) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Se detectaron credenciales guardadas y se está reconectando. Intenta de nuevo en unos segundos.",
+            "WhatsApp se está reconectando. Intenta de nuevo en unos segundos.",
           status: retryStatus,
         },
         { status: 400 }

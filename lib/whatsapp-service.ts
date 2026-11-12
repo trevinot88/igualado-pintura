@@ -464,13 +464,15 @@ export async function sendWhatsAppMessage(
     const hasCreds = await hasSavedCredentials();
 
     if (hasCreds) {
-      // ── Punto 3: hay sesión guardada ⇒ reconexión automática ──
+      // ── Hay sesión guardada ⇒ reconexión automática ──
       console.log(
-        "[WhatsApp] Socket nulo pero sesión guardada existe. Reconectando automáticamente..."
+        "[WhatsApp] Socket no abierto pero hay sesión guardada. Reconectando..."
       );
       await connectWhatsApp();
-      // Esperar razonable para dar oportunidad a que abra la conexión
-      await new Promise((r) => setTimeout(r, 2000));
+      // Esperar (polling) hasta ~12s a que la conexión abra
+      for (let i = 0; i < 12 && !isSocketReallyOpen(sock); i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
 
       if (isSocketReallyOpen(sock)) {
         // Reconectado correctamente, enviar el mensaje
@@ -490,7 +492,7 @@ export async function sendWhatsAppMessage(
         success: false,
         jid,
         error:
-          "Se detectaron credenciales guardadas y se está reconectando. Intenta de nuevo en unos segundos.",
+          "WhatsApp se está reconectando. Intenta de nuevo en unos segundos.",
       };
     }
 
