@@ -43,6 +43,18 @@ function fireAndForget(promise: Promise<unknown>, label: string): void {
 // ─── Estado de autenticación basado en Prisma ──────────────────
 
 /**
+ * Inicializa credenciales nuevas de Baileys usando `initAuthCreds()`.
+ *
+ * Baileys requiere un `noiseKey` y otros campos para poder generar el
+ * QR. Si solo usamos `{ registered: false }`, al conectar falla con:
+ * "Cannot read properties of undefined (reading 'public')".
+ */
+async function createInitialCreds(): Promise<AuthenticationCreds> {
+  const baileys = await import("@whiskeysockets/baileys");
+  return baileys.initAuthCreds() as AuthenticationCreds;
+}
+
+/**
  * Crea un estado de autenticación para Baileys persistido en PostgreSQL.
  *
  * @returns `{ state, saveCreds }` con la misma interfaz que
@@ -60,18 +72,21 @@ export async function usePrismaAuthState(): Promise<{
     const row = await prisma.whatsAppSession.findUnique({
       where: { id: "singleton" },
     });
-    if (row?.creds) {
+    // Solo reutilizar la sesión guardada si tiene el noiseKey requerido.
+    // De lo contrario (sesión corrupta o inexistente), generar credenciales
+    // nuevas para que Baileys pueda emitir un QR fresco.
+    if (row?.creds && (row.creds as { noiseKey?: unknown } | null)?.noiseKey) {
       creds = row.creds as unknown as AuthenticationCreds;
       console.log("[WhatsApp-Auth] Sesión cargada desde PostgreSQL");
     } else {
-      // Sin sesión previa — usar credenciales vacías
-      // Baileys generará unas nuevas al conectar
-      creds = { registered: false } as AuthenticationCreds;
-      console.log("[WhatsApp-Auth] Sin sesión previa — se generará nuevo QR");
+      creds = await createInitialCreds();
+      console.log(
+        "[WhatsApp-Auth] Sin sesión previa (o corrupta) — credenciales inicializadas para nuevo QR"
+      );
     }
   } catch (err) {
-    console.error("[WhatsApp-Auth] Error cargando sesión, usando vacía:", err);
-    creds = { registered: false } as AuthenticationCreds;
+    console.error("[WhatsApp-Auth] Error cargando sesión, usando credenciales nuevas:", err);
+    creds = await createInitialCreds();
   }
 
   // ── Implementación de SignalKeyStore con Prisma ──
