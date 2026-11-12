@@ -206,7 +206,7 @@ async function startConnection(): Promise<void> {
     sock = makeWASocket({
       auth: state,
       printQRInTerminal: false, // generamos el QR nosotros vía API
-      browser: ["Pinturas Dyrlo", "Chrome", "1.0.0"],
+      browser: ["Ubuntu", "Chrome", "22.04.4"],
       syncFullHistory: false,
     });
 
@@ -251,6 +251,11 @@ async function startConnection(): Promise<void> {
 
           const statusCode = lastDisconnect?.output?.statusCode;
           const reason = lastDisconnect?.error?.message ?? "desconocido";
+          const rawData = lastDisconnect?.error?.data;
+          const rawMsg =
+            typeof rawData === "string"
+              ? rawData
+              : rawData?.message ?? rawData?.code ?? "";
 
           // loggedOut = sesión invalidada, necesita reescanear QR
           if (statusCode === DisconnectReason.loggedOut) {
@@ -266,7 +271,7 @@ async function startConnection(): Promise<void> {
           }
 
           // Otros motivos: reconectar automáticamente
-          lastError = `Conexión cerrada (${statusCode ?? "?"}): ${reason}`;
+          lastError = `Conexión cerrada (${statusCode ?? "?"}): ${reason}${rawMsg ? ` — ${rawMsg}` : ""}`;
           console.warn(`[WhatsApp] ${lastError}`);
           // Marcar el socket como no conectado
           sock = null;
