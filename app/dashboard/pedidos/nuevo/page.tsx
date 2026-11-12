@@ -340,6 +340,11 @@ export default function NuevoPedidoPage() {
                     }
                     required
                   />
+                  {item.liters > 50 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      ⚠️ Cantidad inusualmente alta. Verifica que sea correcta (ej: 0.250 no 250).
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
