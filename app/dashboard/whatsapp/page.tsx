@@ -86,6 +86,15 @@ export default function WhatsAppPage() {
     }
   }, [status, qr, fetchQR]);
 
+  // Los QR de Baileys expiran (~60s). Mientras esté desconectado,
+  // refrescamos el QR cada 25s para que siempre se muestre uno vigente.
+  useEffect(() => {
+    if (status && !status.connected) {
+      const interval = setInterval(fetchQR, 25000);
+      return () => clearInterval(interval);
+    }
+  }, [status, fetchQR]);
+
   const handleSendTest = async () => {
     if (!testPhone || testPhone.length < 10) {
       setTestResult({ success: false, message: "Ingresa un teléfono válido (mínimo 10 dígitos)" });
@@ -231,7 +240,7 @@ export default function WhatsAppPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center gap-4">
-              {loadingQr ? (
+              {loadingQr && !qr ? (
                 <div className="flex items-center gap-2 text-slate-500 py-8">
                   <Loader2 className="h-6 w-6 animate-spin" />
                   Generando código QR...
