@@ -529,6 +529,34 @@ export function disconnectWhatsApp(): void {
   currentQr = null;
 }
 
+/**
+ * Reinicia por completo la sesión de WhatsApp: cierra el socket en
+ * memoria y borra las credenciales y claves guardadas en PostgreSQL.
+ *
+ * Útil cuando la sesión guardada se corrompe (p. ej. el error de Baileys
+ * "Cannot read properties of undefined (reading 'public')") y se necesita
+ * generar un QR nuevo para volver a vincular el dispositivo.
+ */
+export async function resetWhatsAppSession(): Promise<void> {
+  disconnectWhatsApp();
+
+  // Reiniciar también el estado de reconexión para empezar desde cero
+  reconnectAttempts = 0;
+  lastError = null;
+  connectPromise = null;
+
+  try {
+    await prisma.whatsAppSession.deleteMany({});
+    await prisma.whatsAppKey.deleteMany({});
+    console.log(
+      "[WhatsApp] Sesión reiniciada: credenciales y claves eliminadas de PostgreSQL"
+    );
+  } catch (err) {
+    console.error("[WhatsApp] Error reiniciando sesión:", err);
+    throw err;
+  }
+}
+
 // ─── Inicialización automática ─────────────────────────────────
 
 /**

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, QrCode, Send, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 interface WhatsAppStatus {
   connected: boolean;
@@ -29,6 +30,9 @@ export default function WhatsAppPage() {
   const [testPhone, setTestPhone] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const { data: session } = useSession();
+  const role = (session?.user as { role?: string })?.role || "";
+  const [disconnecting, setDisconnecting] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     setLoadingStatus(true);
@@ -77,10 +81,10 @@ export default function WhatsAppPage() {
 
   // If not connected and no QR, try to fetch QR
   useEffect(() => {
-    if (status && !status.connected && !qr && !loadingQr) {
+    if (status && !status.connected && !qr) {
       fetchQR();
     }
-  }, [status, qr, loadingQr, fetchQR]);
+  }, [status, qr, fetchQR]);
 
   const handleSendTest = async () => {
     if (!testPhone || testPhone.length < 10) {
@@ -115,6 +119,36 @@ export default function WhatsAppPage() {
     }
   };
 
+  const handleDisconnect = async () => {
+    if (
+      !window.confirm(
+        "¿Desconectar WhatsApp? Se borrará la sesión actual y deberás escanear un nuevo código QR para volver a vincularlo."
+      )
+    ) {
+      return;
+    }
+
+    setDisconnecting(true);
+    try {
+      const res = await fetch("/api/whatsapp/disconnect", { method: "POST" });
+      if (res.ok) {
+        setQr(null);
+        setStatus({ connected: false });
+        // Esperar a que Baileys genere el QR nuevo (puede tardar unos segundos)
+        await new Promise((r) => setTimeout(r, 3000));
+        await fetchQR();
+        await fetchStatus();
+      } else {
+        alert("No se pudo desconectar WhatsApp. Inténtalo de nuevo.");
+      }
+    } catch (err) {
+      console.error("Error disconnecting WhatsApp:", err);
+      alert("Error de conexión al desconectar WhatsApp.");
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -129,14 +163,31 @@ export default function WhatsAppPage() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Estado de la conexión</span>
-            <Button variant="outline" size="sm" onClick={fetchStatus} disabled={loadingStatus}>
-              {loadingStatus ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
+            <div className="flex items-center gap-2">
+              {role === "ADMIN" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDisconnect}
+                  disabled={disconnecting}
+                >
+                  {disconnecting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  <span className="ml-2">Desconectar</span>
+                </Button>
               )}
-              <span className="ml-2">Actualizar</span>
-            </Button>
+              <Button variant="outline" size="sm" onClick={fetchStatus} disabled={loadingStatus}>
+                {loadingStatus ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                <span className="ml-2">Actualizar</span>
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
