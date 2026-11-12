@@ -164,7 +164,7 @@ export default function WhatsAppPage() {
           <CardTitle className="flex items-center justify-between">
             <span>Estado de la conexión</span>
             <div className="flex items-center gap-2">
-              {role === "ADMIN" && (
+              {(role === "ADMIN" || role === "FACTURACION") && (
                 <Button
                   variant="outline"
                   size="sm"

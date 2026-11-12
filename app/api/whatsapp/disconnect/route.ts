@@ -8,11 +8,11 @@ import { NextResponse } from "next/server";
  * Reinicia la sesión de WhatsApp (cierra el socket y borra las
  * credenciales/claves guardadas en PostgreSQL) para forzar la
  * generación de un QR nuevo de vinculación.
- * Solo ADMIN.
+ * Solo ADMIN y FACTURACION.
  */
 export async function POST() {
   const session = await auth();
-  requireRole(session?.user, ["ADMIN"]);
+  requireRole(session?.user, ["ADMIN", "FACTURACION"]);
 
   await resetWhatsAppSession();
 
