@@ -9,6 +9,7 @@ export async function GET() {
   checks.AUTH_SECRET = process.env.AUTH_SECRET ? "SET" : "MISSING";
   checks.NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? "MISSING";
   checks.NODE_ENV = process.env.NODE_ENV ?? "MISSING";
+  checks.NODE_VERSION = process.version;
 
   // Test DB connection
   try {
