@@ -159,10 +159,10 @@ export async function hasSavedCredentials(): Promise<boolean> {
  * termine en lugar de crear una duplicada.
  */
 export function connectWhatsApp(): Promise<void> {
-  // Fuente de verdad: el socket real. Si ya está realmente abierto, no
-  // hacer nada. NO usamos el flag `connectionState === "open"` porque
-  // podría estar desincronizado (era la causa del bug original).
-  if (isSocketReallyOpen(sock)) {
+  // Si ya hay un socket (abierto o en proceso de conexión), no crear otro.
+  // Crear un segundo socket con la misma identidad hace que WhatsApp cierre
+  // la conexión con "conflict: replaced" en un bucle infinito.
+  if (sock) {
     return Promise.resolve();
   }
 
@@ -202,16 +202,18 @@ async function startConnection(): Promise<void> {
     const { state, saveCreds, clearAuthState } = await usePrismaAuthState();
 
 
-    // Crear socket
-    sock = makeWASocket({
+    // Crear socket. Usamos `newSock` para que los handlers del socket viejo
+    // no borren/sobrescriban al socket nuevo en caso de reconexión.
+    const newSock = makeWASocket({
       auth: state,
       printQRInTerminal: false, // generamos el QR nosotros vía API
       browser: ["Ubuntu", "Chrome", "22.04.4"],
       syncFullHistory: false,
     });
+    sock = newSock;
 
     // ── Guardar credenciales cuando se actualicen ──
-    sock.ev.on("creds.update", async () => {
+    newSock.ev.on("creds.update", async () => {
       try {
         await saveCreds();
       } catch (err) {
@@ -220,10 +222,15 @@ async function startConnection(): Promise<void> {
     });
 
     // ── Manejar actualizaciones de conexión ──
-    sock.ev.on(
+    newSock.ev.on(
       "connection.update",
       (update: any) => {
         const { connection, qr, lastDisconnect } = update;
+
+        // Si este socket ya fue reemplazado por uno nuevo, ignorar sus eventos
+        if (sock !== newSock) {
+          return;
+        }
 
         if (qr) {
           currentQr = qr;
@@ -281,7 +288,7 @@ async function startConnection(): Promise<void> {
     );
 
     // ── Recibir mensajes entrantes ──
-    sock.ev.on("messages.upsert", (m: any) => {
+    newSock.ev.on("messages.upsert", (m: any) => {
       if (m.type !== "notify") return; // solo mensajes nuevos
       for (const msg of m.messages) {
         handleIncomingMessage(msg).catch((err: unknown) =>
