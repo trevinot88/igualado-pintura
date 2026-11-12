@@ -27,13 +27,13 @@ const testSchema = z.object({
 /**
  * POST /api/whatsapp/test
  * Envía un mensaje de prueba al número indicado y reporta el resultado.
- * Solo ADMIN.
+ * Solo ADMIN y FACTURACION.
  *
  * Body: { "phone": "5512345678" }
  */
 export async function POST(req: Request) {
   const session = await auth();
-  const user = requireRole(session?.user, ["ADMIN"]);
+  const user = requireRole(session?.user, ["ADMIN", "FACTURACION"]);
 
   const body = await req.json();
   const { phone } = testSchema.parse(body);
