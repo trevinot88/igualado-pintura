@@ -10,11 +10,11 @@ import { z } from "zod";
 /**
  * GET /api/whatsapp/test
  * Devuelve el estado de la conexión de WhatsApp (Baileys).
- * Solo ADMIN.
+ * Solo ADMIN y FACTURACION.
  */
 export async function GET() {
   const session = await auth();
-  requireRole(session?.user, ["ADMIN"]);
+  requireRole(session?.user, ["ADMIN", "FACTURACION"]);
 
   const status = await checkGreenApiStatus();
   return NextResponse.json(status);

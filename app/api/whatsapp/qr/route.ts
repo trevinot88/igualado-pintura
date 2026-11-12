@@ -7,11 +7,11 @@ import { NextResponse } from "next/server";
  * GET /api/whatsapp/qr
  * Devuelve el código QR para vincular WhatsApp (Baileys) como Data URL.
  * Si ya está conectado, devuelve `{ connected: true }` sin QR.
- * Solo ADMIN.
+ * Solo ADMIN y FACTURACION.
  */
 export async function GET() {
   const session = await auth();
-  requireRole(session?.user, ["ADMIN"]);
+  requireRole(session?.user, ["ADMIN", "FACTURACION"]);
 
   const { qr, dataUrl } = await getWhatsAppQR();
 

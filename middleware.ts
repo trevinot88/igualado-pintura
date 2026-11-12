@@ -13,7 +13,7 @@ const ROLE_DEFAULT_DASHBOARD: Record<string, string> = {
 
 const ROLE_ALLOWED_PREFIXES: Record<string, string[]> = {
   ADMIN: ["/dashboard"],
-  FACTURACION: ["/dashboard/pedidos", "/dashboard/clientes", "/dashboard/produccion"],
+  FACTURACION: ["/dashboard/pedidos", "/dashboard/clientes", "/dashboard/produccion", "/dashboard/whatsapp"],
   IGUALADOR: ["/dashboard/produccion", "/dashboard/pedidos"],
   VENDEDOR_READONLY: ["/dashboard/pedidos"],
 };
