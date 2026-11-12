@@ -40,6 +40,43 @@ function fireAndForget(promise: Promise<unknown>, label: string): void {
   promise.catch((err) => console.error(`[WhatsApp-Auth] ${label}:`, err));
 }
 
+// ─── Serialización de Buffers (BufferJSON) ─────────────────────
+
+/**
+ * Baileys guarda sus credenciales/claves con `BufferJSON` para que los
+ * Buffer/Uint8Array sobrevivan al JSON. Sin esto, al guardar en PostgreSQL
+ * las claves quedan como string/objeto plano y al recargar falla con:
+ * "Invalid private key type: String".
+ */
+let bufferJSONPromise: Promise<any> | null = null;
+
+function getBufferJSON(): Promise<any> {
+  if (!bufferJSONPromise) {
+    bufferJSONPromise = import("@whiskeysockets/baileys").then(
+      (baileys) => baileys.BufferJSON
+    );
+  }
+  return bufferJSONPromise;
+}
+
+async function serializeWithBufferJSON(value: unknown): Promise<unknown> {
+  const { replacer } = await getBufferJSON();
+  return JSON.parse(JSON.stringify(value, replacer));
+}
+
+async function deserializeWithBufferJSON(value: unknown): Promise<unknown> {
+  const { reviver } = await getBufferJSON();
+  return JSON.parse(JSON.stringify(value), reviver);
+}
+
+function isBufferLike(value: unknown): boolean {
+  return (
+    Buffer.isBuffer(value) ||
+    value instanceof Uint8Array ||
+    ArrayBuffer.isView(value)
+  );
+}
+
 // ─── Estado de autenticación basado en Prisma ──────────────────
 
 /**
@@ -72,16 +109,34 @@ export async function usePrismaAuthState(): Promise<{
     const row = await prisma.whatsAppSession.findUnique({
       where: { id: "singleton" },
     });
-    // Solo reutilizar la sesión guardada si tiene el noiseKey requerido.
-    // De lo contrario (sesión corrupta o inexistente), generar credenciales
-    // nuevas para que Baileys pueda emitir un QR fresco.
-    if (row?.creds && (row.creds as { noiseKey?: unknown } | null)?.noiseKey) {
-      creds = row.creds as unknown as AuthenticationCreds;
-      console.log("[WhatsApp-Auth] Sesión cargada desde PostgreSQL");
+    // Solo reutilizar la sesión guardada si, tras revivir los Buffers,
+    // tiene un noiseKey válido (con claves Buffer). De lo contrario
+    // (sesión corrupta o inexistente), generar credenciales nuevas.
+    const rawCreds = row?.creds as
+      | { noiseKey?: { private?: unknown; public?: unknown } }
+      | null
+      | undefined;
+    if (rawCreds?.noiseKey) {
+      const revived = (await deserializeWithBufferJSON(
+        rawCreds
+      )) as AuthenticationCreds;
+      const noiseKey = revived.noiseKey as {
+        private?: unknown;
+        public?: unknown;
+      };
+      if (isBufferLike(noiseKey?.private) && isBufferLike(noiseKey?.public)) {
+        creds = revived;
+        console.log("[WhatsApp-Auth] Sesión cargada desde PostgreSQL");
+      } else {
+        creds = await createInitialCreds();
+        console.log(
+          "[WhatsApp-Auth] Sesión guardada corrupta (noiseKey inválido) — credenciales reinicializadas"
+        );
+      }
     } else {
       creds = await createInitialCreds();
       console.log(
-        "[WhatsApp-Auth] Sin sesión previa (o corrupta) — credenciales inicializadas para nuevo QR"
+        "[WhatsApp-Auth] Sin sesión previa — credenciales inicializadas para nuevo QR"
       );
     }
   } catch (err) {
@@ -107,7 +162,7 @@ export async function usePrismaAuthState(): Promise<{
           select: { keyId: true, data: true },
         });
         for (const row of rows) {
-          result[row.keyId] = row.data as T;
+          result[row.keyId] = (await deserializeWithBufferJSON(row.data)) as T;
         }
       } catch (err) {
         console.error(`[WhatsApp-Auth] Error leyendo claves tipo "${type}":`, err);
@@ -125,11 +180,14 @@ export async function usePrismaAuthState(): Promise<{
       for (const [type, entries] of Object.entries(data)) {
         for (const [id, value] of Object.entries(entries)) {
           operations.push(
-            prisma.whatsAppKey.upsert({
-              where: { type_keyId: { type, keyId: id } },
-              create: { type, keyId: id, data: value as any },
-              update: { data: value as any },
-            })
+            (async () => {
+              const serialized = await serializeWithBufferJSON(value);
+              return prisma.whatsAppKey.upsert({
+                where: { type_keyId: { type, keyId: id } },
+                create: { type, keyId: id, data: serialized as any },
+                update: { data: serialized as any },
+              });
+            })()
           );
         }
       }
@@ -169,10 +227,11 @@ export async function usePrismaAuthState(): Promise<{
 
     saveInProgress = true;
     try {
+      const serializedCreds = await serializeWithBufferJSON(creds);
       await prisma.whatsAppSession.upsert({
         where: { id: "singleton" },
-        create: { id: "singleton", creds: creds as any },
-        update: { creds: creds as any },
+        create: { id: "singleton", creds: serializedCreds as any },
+        update: { creds: serializedCreds as any },
       });
     } catch (err) {
       console.error("[WhatsApp-Auth] Error guardando credenciales:", err);
