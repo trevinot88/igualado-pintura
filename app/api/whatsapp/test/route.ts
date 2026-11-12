@@ -80,12 +80,17 @@ export async function POST(req: Request) {
   // Enviar mensaje de prueba
   const result = await sendTestWhatsAppMessage(phone);
 
-
-  await logAudit(user.id, "WHATSAPP_SENT", "System", undefined, {
-    phone,
-    result,
-    test: true,
-  });
+  // Registrar auditoría sin que un fallo en BD rompa la respuesta
+  // (el mensaje ya se envió; la auditoría es un efecto secundario).
+  try {
+    await logAudit(user.id, "WHATSAPP_SENT", "System", undefined, {
+      phone,
+      result,
+      test: true,
+    });
+  } catch (err) {
+    console.error("[WhatsApp/test] Error registrando auditoría:", err);
+  }
 
   if (!result.success) {
     return NextResponse.json(
